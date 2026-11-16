@@ -998,6 +998,25 @@
         color: #fff;
         line-height: 1.1;
       }
+      /* Always-visible way back to the main page from the player —
+         shown in the top bar while a channel plays, so even if the
+         remote's Back key is swallowed by the TV there is a big
+         on-screen button that lands on the main page. */
+      .player-back-btn {
+        appearance: none;
+        margin-left: auto;
+        flex: 0 0 auto;
+        background: rgba(0, 0, 0, 0.5);
+        color: #fff;
+        border: 2px solid var(--gold);
+        border-radius: 999px;
+        padding: 10px 22px;
+        font: inherit;
+        font-weight: 900;
+        font-size: clamp(1.05rem, 2.8vw, 1.3rem);
+        cursor: pointer;
+      }
+      .player-back-btn:focus-visible { outline: 4px solid var(--focus-ring); outline-offset: 2px; }
       .player-center {
         position: absolute;
         inset: 0;
@@ -1140,6 +1159,7 @@
       <div class="player-top" id="player-top">
         <span class="live-badge"><span class="live-dot" aria-hidden="true"></span>TRỰC TIẾP</span>
         <span class="player-chan" id="player-chan">VTV1</span>
+        <button type="button" class="player-back-btn" id="btn-player-back">⬅ Trang chính</button>
       </div>
       <div class="player-center" id="player-center">
         <div class="player-spinner" id="player-spinner" aria-hidden="true"></div>
@@ -1147,6 +1167,7 @@
         <div class="player-actions" id="player-actions">
           <button type="button" class="open-btn" id="btn-retry">↻ Thử lại</button>
           <button type="button" class="open-btn alt" id="btn-app-fallback">▶ Mở trong VTV Go</button>
+          <button type="button" class="open-btn alt" id="btn-player-home">⬅ Về trang chính</button>
         </div>
       </div>
       <div class="player-unmute" id="player-unmute" role="status">🔇 Đang tắt tiếng — bấm nút <b>OK</b> trên remote để bật tiếng</div>
@@ -1716,6 +1737,15 @@
       }
       elBtnRetry.addEventListener("click", function () { if (curStreamCh) { loadStream(curStreamCh, 0); } });
       elBtnAppFallback.addEventListener("click", function () { if (curStreamCh) { launchChannelApp(curStreamCh); } });
+      /* On-screen escape hatches to the main page: the error screen's
+         "⬅ Về trang chính" button and the player top bar's
+         "⬅ Trang chính" button. They work even when the TV swallows
+         the remote's Back key completely, so Mom can never be stuck
+         on the error screen or trapped in the player. */
+      var elBtnPlayerHome = document.getElementById("btn-player-home");
+      if (elBtnPlayerHome) { elBtnPlayerHome.addEventListener("click", function () { showMainPage("live"); }); }
+      var elBtnPlayerBack = document.getElementById("btn-player-back");
+      if (elBtnPlayerBack) { elBtnPlayerBack.addEventListener("click", function () { showMainPage("live"); }); }
 
       /* First channel pick (from the phone, or the TV remote as a fallback)
          ends the waiting screen: the wallpaper + code view goes away and
@@ -1998,46 +2028,93 @@
 
       /* ---------- Back button: stays inside Mom TV, ALWAYS ----------
          Tien's rule: the remote's Back button may only go back WITHIN
-         this page (video → channel screen → previous screen). It must
-         NEVER drop Mom out to the Fire TV home screen. Two layers make
-         that true no matter how the TV delivers the press:
-         1) Key events: every Back key a TV browser can send is caught
-            below and routed to backWithinApp().
-         2) History: Silk treats remote Back as browser-back, which at
-            the first history entry exits to the TV launcher. So the
-            page keeps a sentinel entry in its history at all times —
-            a Back press pops the sentinel (firing popstate), the page
-            re-arms it instantly and steps back in-app instead. The
-            browser therefore never runs out of history and never
-            leaves Mom TV. */
+         this page, and from the video player AND from the channel
+         error screen it must land on the MAIN PAGE (the TV Trực Tiếp /
+         Kho Phim choice). It must NEVER drop Mom out to the Fire TV
+         home screen, and it must never get stuck doing nothing.
+         Live testing on the Toshiba showed a single delivery path is
+         not enough: depending on the screen, the TV browser may hand
+         the press to the page as a key event, swallow it as a browser
+         history navigation, or deliver it only on key release — and
+         while the error screen is up, the focused "Thử lại" button /
+         the <video> element sat between the press and the old
+         bubble-phase document handler. So THREE layers now catch the
+         press, and every one of them routes to backWithinApp():
+         1) Capture-phase key interception on window, for BOTH keydown
+            and keyup: the press is caught before any focused element
+            (video, error-screen buttons) or any other handler can
+            swallow it, and stopPropagation keeps it from also acting
+            as a browser navigation.
+         2) History trap, TWO sentinel entries deep: if the browser
+            still treats the press as history-back, it can only pop a
+            sentinel — popstate fires, the trap re-arms instantly and
+            the page steps back in-app instead. The trap is topped up
+            on every remote key press (while the press's user
+            activation is fresh, so the browser does not skip the
+            entries) and whenever the page returns to the front, so it
+            can never run dry and let a press exit to the TV launcher.
+         3) Visible on-screen buttons: "⬅ Trang chính" in the player
+            top bar and "⬅ Về trang chính" on the error screen — a
+            guaranteed path to the main page even if the TV eats the
+            remote's Back key entirely.
+         One physical press can arrive through several layers at once
+         (keydown + keyup + popstate); handleBackPress() de-dupes them
+         so a single press steps back exactly once. */
       var lastBackAt = 0;
       function isBackKey(e) {
-        return e.key === "Escape" || e.key === "Backspace" || e.key === "BrowserBack" ||
-          e.key === "GoBack" || e.key === "Back" || e.keyCode === 461 || e.keyCode === 10009 ||
-          e.keyCode === 4;
+        if (!e) { return false; }
+        var k = e.key || "";
+        var code = e.keyCode || e.which || 0;
+        return k === "Escape" || k === "Esc" || k === "Backspace" || k === "BrowserBack" ||
+          k === "GoBack" || k === "Back" || k === "Cancel" || k === "Exit" || k === "MediaBack" ||
+          e.code === "BrowserBack" ||
+          code === 461 || code === 10009 || code === 4 || code === 27 || code === 8;
       }
       function backWithinApp() {
         // Tien's rule: Back goes back to the MAIN PAGE (tabs + channel
-        // grid, TV / Kho Phim choice) — from the video, and from the
-        // info screen too. It still never leaves Mom TV for the TV
+        // grid, TV / Kho Phim choice) — from the video while a channel
+        // is playing, from the channel error screen (uiState is still
+        // "watching" there, with playerError set), and from the info
+        // screen too. It still never leaves Mom TV for the TV
         // home screen.
         if (uiState === "watching" || uiState === "playing") { showMainPage(mode); return; }
         if (view !== "home") { goBack(); notifyRemote(); return; }
         // Already on the main page / waiting screen: stay right here.
         // Back at the top level of Mom TV does nothing — it never exits.
       }
+      function handleBackPress() {
+        var now = Date.now();
+        if (now - lastBackAt < 450) { return; }
+        lastBackAt = now;
+        backWithinApp();
+      }
+      /* Layer 1 — capture-phase key interception (keydown AND keyup). */
+      function trapBackKey(e) {
+        if (!isBackKey(e)) { return; }
+        if (e.preventDefault) { e.preventDefault(); }
+        if (e.stopPropagation) { e.stopPropagation(); }
+        handleBackPress();
+      }
+      window.addEventListener("keydown", trapBackKey, true);
+      window.addEventListener("keyup", trapBackKey, true);
+      /* Layer 2 — history trap, kept two sentinel entries deep. */
+      var trapDepth = 0;
+      var TRAP_TARGET = 2;
       function armBackTrap() {
-        try { history.pushState({ momtv: true }, ""); } catch (err) {}
+        while (trapDepth < TRAP_TARGET) {
+          try { history.pushState({ momtv: true }, ""); trapDepth++; }
+          catch (err) { break; }
+        }
       }
       armBackTrap();
       window.addEventListener("popstate", function () {
+        if (trapDepth > 0) { trapDepth--; }
         armBackTrap();
-        // One physical press can arrive as BOTH a key event and a
-        // history pop; the key handler already stepped back, so don't
-        // step twice for the same press.
-        if (Date.now() - lastBackAt < 500) { return; }
-        lastBackAt = Date.now();
-        backWithinApp();
+        handleBackPress();
+      });
+      window.addEventListener("pageshow", function () { armBackTrap(); });
+      document.addEventListener("visibilitychange", function () {
+        if (!document.hidden) { armBackTrap(); }
       });
 
       tabLive.addEventListener("click", function () { setMode("live", true); });
@@ -2051,6 +2128,10 @@
       document.getElementById("btn-down").addEventListener("click", function () { flip(1); });
 
       document.addEventListener("keydown", function (e) {
+        // Every remote press is a fresh user gesture: top the history
+        // trap back up while this press's activation is fresh, so the
+        // browser never skips the sentinel entries on a Back press.
+        armBackTrap();
         if (!hasStarted) {
           // Waiting screen: the code is ONLY for the phone remote. With
           // the TV remote, Mom never needs it — a number key plays that
@@ -2067,16 +2148,18 @@
           return;
         }
         if (isBackKey(e)) {
-          // The remote's Back button only ever steps back INSIDE Mom TV
-          // (video → channel screen, film detail → film list → home) —
-          // preventDefault plus the history trap above mean it can
-          // never leave the page for the TV home screen.
+          // Backup net: the capture-phase trap above normally catches
+          // the remote's Back press first and stops it reaching here.
+          // If a press still arrives, it only ever steps back INSIDE
+          // Mom TV (video / error screen → main page, film detail →
+          // film list → home) — it can never leave the page for the
+          // TV home screen.
           e.preventDefault();
-          lastBackAt = Date.now();
-          backWithinApp();
+          handleBackPress();
           return;
         }
         if (uiState === "watching") {
+          pokeOverlay();
           if (needsUnmute || videoEl.muted) {
             // Any TV-remote press first restores the sound if this
             // visit started muted; OK does ONLY that (no pause), other
