@@ -402,6 +402,14 @@
         width: 100%;
       }
       .open-btn.show { display: flex; }
+      .app-note {
+        margin: 0;
+        font-size: clamp(1.05rem, 2.8vw, 1.3rem);
+        font-weight: 800;
+        color: var(--ink-dim);
+        line-height: 1.35;
+      }
+      .app-note:empty { display: none; }
       .open-btn:focus-visible, .movie-card:focus-visible, .ep-btn:focus-visible, .back-btn:focus-visible {
         outline: 4px solid var(--focus-ring);
         outline-offset: 2px;
@@ -879,6 +887,8 @@
           <h2 id="screen-name">VTV1</h2>
           <p class="desc" id="screen-desc">Tin tức &amp; thời sự</p>
           <span class="group-tag" id="screen-group">VTV</span>
+          <p class="app-note" id="screen-app-note"></p>
+          <button type="button" class="open-btn" id="btn-play">▶ Phát kênh này</button>
           <button type="button" class="open-btn" id="btn-open">▶ Mở mục này — xem hình &amp; chọn phim</button>
           <div class="flip">
             <button type="button" id="btn-up" aria-label="Mục trước">
@@ -927,17 +937,22 @@
 
     <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <script>
+      // Live channels play inside their official free app on the TV:
+      // VTV channels + Vietnam Today in VTV Go, THVL channels in THVLi.
+      // A channel pick launches that app on the TV (Android intent), so
+      // real video with sound starts playing — the web page itself cannot
+      // play these streams (the broadcasters' CDNs block in-browser play).
       var CHANNELS = [
-        { group: "VTV", name: "VTV1", desc: "Tin tức & thời sự" },
-        { group: "VTV", name: "VTV2", desc: "Khoa học & đời sống" },
-        { group: "VTV", name: "VTV3", desc: "Giải trí & phim truyện" },
-        { group: "VTV", name: "VTV4", desc: "Kênh quốc tế của VTV" },
-        { group: "VTV", name: "VTV5", desc: "Chương trình tiếng dân tộc" },
-        { group: "Vietnam Today", name: "Vietnam Today", desc: "Tin tức Việt Nam bằng tiếng Anh" },
-        { group: "THVL — Vĩnh Long", name: "THVL1", desc: "Phim truyện & giải trí" },
-        { group: "THVL — Vĩnh Long", name: "THVL2", desc: "Văn hóa & đời sống" },
-        { group: "THVL — Vĩnh Long", name: "THVL3", desc: "Giải trí cho giới trẻ" },
-        { group: "THVL — Vĩnh Long", name: "THVL4", desc: "Kênh tổng hợp Vĩnh Long" }
+        { group: "VTV", name: "VTV1", desc: "Tin tức & thời sự", app: "VTV Go", pkg: "vn.vtv.vtvgotv" },
+        { group: "VTV", name: "VTV2", desc: "Khoa học & đời sống", app: "VTV Go", pkg: "vn.vtv.vtvgotv" },
+        { group: "VTV", name: "VTV3", desc: "Giải trí & phim truyện", app: "VTV Go", pkg: "vn.vtv.vtvgotv" },
+        { group: "VTV", name: "VTV4", desc: "Kênh quốc tế của VTV", app: "VTV Go", pkg: "vn.vtv.vtvgotv" },
+        { group: "VTV", name: "VTV5", desc: "Chương trình tiếng dân tộc", app: "VTV Go", pkg: "vn.vtv.vtvgotv" },
+        { group: "Vietnam Today", name: "Vietnam Today", desc: "Tin tức Việt Nam bằng tiếng Anh", app: "VTV Go", pkg: "vn.vtv.vtvgotv" },
+        { group: "THVL — Vĩnh Long", name: "THVL1", desc: "Phim truyện & giải trí", app: "THVLi", pkg: "vn.thvli.androidtv" },
+        { group: "THVL — Vĩnh Long", name: "THVL2", desc: "Văn hóa & đời sống", app: "THVLi", pkg: "vn.thvli.androidtv" },
+        { group: "THVL — Vĩnh Long", name: "THVL3", desc: "Giải trí cho giới trẻ", app: "THVLi", pkg: "vn.thvli.androidtv" },
+        { group: "THVL — Vĩnh Long", name: "THVL4", desc: "Kênh tổng hợp Vĩnh Long", app: "THVLi", pkg: "vn.thvli.androidtv" }
       ];
 
       var FILMS = [
@@ -992,6 +1007,8 @@
       var elHint = document.getElementById("hint");
       var elPoster = document.getElementById("screen-poster");
       var elOpenBtn = document.getElementById("btn-open");
+      var elPlayBtn = document.getElementById("btn-play");
+      var elAppNote = document.getElementById("screen-app-note");
       var elMain = document.getElementById("main-split");
       var elMoviesView = document.getElementById("movies-view");
       var elDetailView = document.getElementById("detail-view");
@@ -1045,7 +1062,7 @@
           (function (idx) {
             b.addEventListener("click", function () {
               if (mode === "films") { openCategory(idx); }
-              else { select(idx, true); }
+              else { startPlayback(idx); }
             });
           })(i);
           listEl.appendChild(b);
@@ -1069,6 +1086,9 @@
           elDownLabel.textContent = "Kênh sau";
           elPoster.classList.remove("show");
           elOpenBtn.classList.remove("show");
+          elAppNote.textContent = "📺 Kênh này phát trong ứng dụng " + ch.app + " trên TV";
+          elPlayBtn.textContent = "▶ Phát " + ch.name + " — mở " + ch.app;
+          elPlayBtn.classList.add("show");
         } else {
           elNum.textContent = "Mục " + (idx + 1) + " / " + list.length;
           elBadgeText.textContent = "KHO PHIM";
@@ -1078,6 +1098,8 @@
           elPoster.src = ch.poster;
           elPoster.classList.add("show");
           elOpenBtn.classList.add("show");
+          elAppNote.textContent = "";
+          elPlayBtn.classList.remove("show");
         }
         buttons.forEach(function (b, j) {
           b.setAttribute("aria-selected", j === idx ? "true" : "false");
@@ -1089,9 +1111,28 @@
         notifyRemote();
       }
 
+      /* Open the channel's official app on the TV (VTV Go for VTV +
+         Vietnam Today, THVLi for THVL) so real video starts playing.
+         An Android intent:// link is the way a web page asks Fire TV /
+         Android TV to launch an installed app; on a desktop browser it
+         is simply ignored, and the on-screen panel still shows the pick. */
+      function launchChannelApp(ch) {
+        if (!ch || !ch.pkg) { return; }
+        var intentUrl = "intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;package=" + ch.pkg + ";end";
+        try {
+          var a = document.createElement("a");
+          a.href = intentUrl;
+          a.style.display = "none";
+          document.body.appendChild(a);
+          a.click();
+          setTimeout(function () { a.remove(); }, 600);
+        } catch (err) {}
+      }
+
       /* First channel pick (from the phone, or the TV remote as a fallback)
          ends the waiting screen: the wallpaper + code view goes away and
-         the TV starts playing the chosen channel. Later picks just switch. */
+         the TV opens the channel's app, which starts playing the video.
+         Later picks switch the same way. */
       function startPlayback(idx) {
         var first = !hasStarted;
         hasStarted = true;
@@ -1099,9 +1140,11 @@
         showHome();
         if (mode !== "live") { setMode("live", false); }
         select(idx, true);
+        var ch = CHANNELS[idx];
         tvToast(first
-          ? "▶ TV bắt đầu phát: " + CHANNELS[idx].name
-          : "📱 Điện thoại chọn kênh: " + CHANNELS[idx].name);
+          ? "▶ Đang mở " + ch.app + " để phát " + ch.name + "…"
+          : "📱 Điện thoại chọn " + ch.name + " — đang mở trong " + ch.app + "…");
+        launchChannelApp(ch);
         notifyRemote();
       }
 
@@ -1121,7 +1164,7 @@
         tabFilms.setAttribute("aria-selected", mode === "films" ? "true" : "false");
         nav.setAttribute("aria-label", mode === "live" ? "Danh sách kênh trực tiếp" : "Danh sách kho phim");
         elHint.innerHTML = mode === "live"
-          ? "Bấm <b>▲ ▼</b> để đổi kênh &nbsp;•&nbsp; Bấm <b>◀ ▶</b> để qua Kho Phim &nbsp;•&nbsp; Bấm <b>số 1–9</b>, <b>số 0</b> là kênh 10"
+          ? "Bấm <b>▲ ▼</b> để xem kênh &nbsp;•&nbsp; Bấm <b>số kênh</b> hoặc nút <b>▶ Phát</b> là TV mở ứng dụng phát ngay &nbsp;•&nbsp; Bấm <b>◀ ▶</b> để qua Kho Phim"
           : "Bấm <b>▲ ▼</b> để đổi mục phim &nbsp;•&nbsp; Bấm vào mục để xem hình phim &nbsp;•&nbsp; Bấm <b>◀</b> để về TV Trực Tiếp";
         renderList();
         select(currentIndex(), !!focusFirst);
@@ -1281,6 +1324,7 @@
       tabLive.addEventListener("click", function () { setMode("live", true); });
       tabFilms.addEventListener("click", function () { setMode("films", true); });
       elOpenBtn.addEventListener("click", function () { if (mode === "films") { openCategory(currentFilm); } });
+      elPlayBtn.addEventListener("click", function () { if (mode === "live") { startPlayback(currentLive); } });
       document.getElementById("btn-back-movies").addEventListener("click", function () { goBack(); });
       document.getElementById("btn-back-detail").addEventListener("click", function () { goBack(); });
 
@@ -1307,8 +1351,11 @@
         else if (e.key === "ArrowRight") { e.preventDefault(); setMode("films", false); }
         else if (e.key === "ArrowLeft") { e.preventDefault(); setMode("live", false); }
         else if (e.key === "Enter" && mode === "films") { e.preventDefault(); openCategory(currentFilm); }
-        else if (/^[1-9]$/.test(e.key)) { select(parseInt(e.key, 10) - 1, true); }
-        else if (e.key === "0") { select(9, true); }
+        else if (/^[1-9]$/.test(e.key)) {
+          var dn = parseInt(e.key, 10) - 1;
+          if (mode === "live") { startPlayback(dn); } else { select(dn, true); }
+        }
+        else if (e.key === "0") { if (mode === "live") { startPlayback(9); } else { select(9, true); } }
       });
 
       /* ---------- Phone remote pairing (PeerJS) ----------
@@ -1357,7 +1404,7 @@
         var name = view === "detail" ? elDetailTitle.textContent
           : view === "movies" ? elMoviesTitle.textContent
           : elName.textContent;
-        var msg = { type: "state", name: name, mode: mode, view: view, index: currentIndex() };
+        var msg = { type: "state", name: name, mode: mode, view: view, index: currentIndex(), app: mode === "live" ? CHANNELS[currentLive].app : "" };
         mtvConns.forEach(function (c) {
           try { if (c.open) { c.send(msg); } } catch (err) {}
         });
