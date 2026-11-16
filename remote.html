@@ -1,0 +1,554 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" href="data:," />
+    <title>Mom TV Remote</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --page-bg: #e9f2ee;
+        --page-ink: #123332;
+        --page-sub: #47635e;
+        --panel: #ffffff;
+        --panel-line: #cfded7;
+        --remote-bg: #0b2e2c;
+        --remote-bg2: #0e3a37;
+        --remote-line: #1e4f4a;
+        --btn: #174843;
+        --btn-ink: #eafaf3;
+        --btn-press: #1f5a54;
+        --gold: #f4b942;
+        --gold-ink: #2a1a02;
+        --red: #ff5a4e;
+        --green: #3ddc84;
+        --focus: #ffd97a;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --page-bg: #06262b;
+          --page-ink: #eafaf3;
+          --page-sub: #a8c8bf;
+          --panel: #0b3230;
+          --panel-line: #1e4f4a;
+        }
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; }
+      body {
+        font-family: "Nunito", "Segoe UI", system-ui, sans-serif;
+        background: var(--page-bg);
+        color: var(--page-ink);
+        -webkit-tap-highlight-color: transparent;
+      }
+      button { font-family: inherit; cursor: pointer; }
+      button:focus-visible, input:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+      .wrap {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 20px 16px 40px;
+        display: grid;
+        gap: 20px;
+        grid-template-columns: 1fr;
+        align-items: start;
+      }
+      @media (min-width: 860px) {
+        .wrap { grid-template-columns: 400px 1fr; padding-top: 32px; }
+      }
+
+      /* ---------- Remote body ---------- */
+      .remote {
+        background: linear-gradient(180deg, var(--remote-bg2), var(--remote-bg));
+        border: 1px solid var(--remote-line);
+        border-radius: 36px;
+        padding: 20px 18px 24px;
+        color: var(--btn-ink);
+        box-shadow: 0 18px 40px rgba(4, 30, 28, .35);
+        user-select: none;
+        -webkit-user-select: none;
+        touch-action: manipulation;
+      }
+      .r-top {
+        display: flex; align-items: center; justify-content: space-between; gap: 10px;
+        margin-bottom: 6px;
+      }
+      .brand { font-weight: 900; font-size: 1.05rem; letter-spacing: .02em; }
+      .brand small { display: block; font-weight: 700; font-size: .72rem; color: #9fc6bb; letter-spacing: .06em; text-transform: uppercase; }
+      .power {
+        width: 52px; height: 52px; border-radius: 50%;
+        border: 2px solid #7a2d28; background: #3a1512; color: #ff8a80;
+        display: grid; place-items: center; flex: none;
+      }
+      .power:active { background: #571f1b; }
+      .power svg { width: 26px; height: 26px; }
+
+      .status {
+        display: flex; align-items: center; gap: 8px;
+        font-size: .86rem; font-weight: 800; color: #cfe9df;
+        background: rgba(255,255,255,.05);
+        border: 1px solid var(--remote-line);
+        border-radius: 999px; padding: 8px 14px; margin: 10px 0 14px;
+      }
+      .dot { width: 11px; height: 11px; border-radius: 50%; background: #8aa79f; flex: none; }
+      .dot.on { background: var(--green); box-shadow: 0 0 8px rgba(61,220,132,.8); }
+      .status .tv { margin-left: auto; font-weight: 700; color: #9fc6bb; font-size: .8rem; text-align: right; }
+
+      .now {
+        background: rgba(0,0,0,.28);
+        border: 1px solid var(--remote-line);
+        border-radius: 16px;
+        padding: 12px 16px;
+        margin-bottom: 16px;
+        min-height: 74px;
+      }
+      .now .label { font-size: .7rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #9fc6bb; }
+      .now .chan { font-size: 1.45rem; font-weight: 900; line-height: 1.15; margin-top: 2px; }
+      .now .meta { font-size: .85rem; font-weight: 700; color: #bcd9d0; }
+
+      /* D-pad */
+      .dpad {
+        position: relative;
+        width: 232px; height: 232px;
+        margin: 4px auto 14px;
+      }
+      .dpad .ring {
+        position: absolute; inset: 0; border-radius: 50%;
+        background: #0a2725; border: 1px solid var(--remote-line);
+      }
+      .dbtn {
+        position: absolute; border: none; background: transparent; color: var(--btn-ink);
+        display: grid; place-items: center; border-radius: 18px;
+      }
+      .dbtn svg { width: 30px; height: 30px; }
+      .dbtn:active { background: var(--btn-press); }
+      .d-up    { top: 6px;    left: 50%; transform: translateX(-50%); width: 76px; height: 62px; }
+      .d-down  { bottom: 6px; left: 50%; transform: translateX(-50%); width: 76px; height: 62px; }
+      .d-left  { left: 6px;   top: 50%; transform: translateY(-50%); width: 62px; height: 76px; }
+      .d-right { right: 6px;  top: 50%; transform: translateY(-50%); width: 62px; height: 76px; }
+      .ok {
+        position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+        width: 88px; height: 88px; border-radius: 50%;
+        background: var(--gold); color: var(--gold-ink);
+        border: none; font-weight: 900; font-size: 1.25rem; letter-spacing: .03em;
+        box-shadow: 0 4px 0 #b06f00;
+      }
+      .ok:active { transform: translate(-50%,-50%) scale(.95); box-shadow: 0 1px 0 #b06f00; }
+
+      .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+      .rbtn {
+        border: 1px solid var(--remote-line); background: var(--btn); color: var(--btn-ink);
+        border-radius: 14px; min-height: 52px; padding: 8px 4px;
+        font-weight: 800; font-size: .92rem;
+        display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+      }
+      .rbtn svg { width: 22px; height: 22px; }
+      .rbtn:active { background: var(--btn-press); transform: scale(.97); }
+
+      .rockers { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+      .rocker {
+        border: 1px solid var(--remote-line); border-radius: 18px; overflow: hidden;
+        display: grid; grid-template-rows: 1fr auto 1fr; background: #0a2725;
+      }
+      .rocker button {
+        border: none; background: var(--btn); color: var(--btn-ink);
+        min-height: 54px; font-size: 1.35rem; font-weight: 900;
+        display: grid; place-items: center;
+      }
+      .rocker button:active { background: var(--btn-press); }
+      .rocker .mid {
+        text-align: center; font-size: .72rem; font-weight: 800; letter-spacing: .07em;
+        text-transform: uppercase; color: #9fc6bb; padding: 6px 2px;
+      }
+      .volbar { height: 6px; background: #123c38; border-radius: 3px; margin: 5px 12px 2px; overflow: hidden; }
+      .volbar i { display: block; height: 100%; background: var(--gold); width: 40%; transition: width .15s; }
+
+      .quick-label { font-size: .74rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #9fc6bb; margin: 2px 0 8px; }
+      .quick { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; margin-bottom: 16px; }
+      .qbtn {
+        border: 1px solid var(--remote-line); background: var(--btn); color: var(--btn-ink);
+        border-radius: 12px; min-height: 50px; padding: 6px 2px;
+        font-weight: 900; font-size: .95rem;
+      }
+      .qbtn.wide { grid-column: span 3; background: #7a5b12; border-color: #a87f1d; color: #fff3d6; font-size: 1.05rem; }
+      .qbtn:active { background: var(--btn-press); transform: scale(.97); }
+      .qbtn.wide:active { background: #96741a; }
+      .qbtn.current { border-color: var(--gold); box-shadow: inset 0 0 0 2px var(--gold); }
+
+      .toast {
+        min-height: 24px; text-align: center;
+        font-size: .88rem; font-weight: 800; color: var(--gold);
+        opacity: 0; transition: opacity .2s;
+      }
+      .toast.show { opacity: 1; }
+      .unpair {
+        display: block; margin: 6px auto 0; background: none; border: none;
+        color: #9fc6bb; font-weight: 700; font-size: .85rem; text-decoration: underline;
+        min-height: 40px; padding: 8px 12px;
+      }
+
+      /* ---------- Side panels ---------- */
+      .panel {
+        background: var(--panel); border: 1px solid var(--panel-line);
+        border-radius: 20px; padding: 22px;
+      }
+      .panel h2 { margin: 0 0 6px; font-size: 1.35rem; font-weight: 900; }
+      .panel p { margin: 0 0 12px; color: var(--page-sub); font-weight: 600; line-height: 1.5; }
+      .steps { margin: 0; padding-left: 1.25rem; color: var(--page-sub); font-weight: 600; line-height: 1.65; }
+      .steps strong { color: var(--page-ink); }
+
+      .code-row { display: flex; gap: 8px; justify-content: flex-start; margin: 14px 0; flex-wrap: nowrap; }
+      .code-row input {
+        width: 46px; height: 58px; text-align: center;
+        font-family: inherit; font-size: 1.5rem; font-weight: 900;
+        border: 2px solid var(--panel-line); border-radius: 12px;
+        background: var(--page-bg); color: var(--page-ink);
+      }
+      .code-row input:focus { border-color: var(--gold); outline: none; }
+      .pair-btn {
+        background: var(--gold); color: var(--gold-ink); border: none;
+        border-radius: 14px; min-height: 54px; padding: 12px 26px;
+        font-size: 1.05rem; font-weight: 900;
+      }
+      .pair-btn:disabled { opacity: .45; cursor: not-allowed; }
+      .pair-btn:active:not(:disabled) { transform: scale(.98); }
+      .pair-err { color: #c22f24; font-weight: 800; min-height: 22px; margin-top: 8px; }
+      @media (prefers-color-scheme: dark) { .pair-err { color: #ff9d94; } }
+      .paired-note { display: flex; gap: 10px; align-items: center; font-weight: 800; }
+      .paired-note .dot { background: var(--green); box-shadow: 0 0 8px rgba(61,220,132,.7); }
+      [hidden] { display: none !important; }
+
+      .tips { display: grid; gap: 12px; }
+      .tip { display: flex; gap: 12px; align-items: flex-start; }
+      .tip .ic {
+        flex: none; width: 42px; height: 42px; border-radius: 12px;
+        background: var(--page-bg); border: 1px solid var(--panel-line);
+        display: grid; place-items: center; font-size: 1.15rem;
+      }
+      .tip div { font-weight: 600; color: var(--page-sub); line-height: 1.45; }
+      .tip div strong { color: var(--page-ink); display: block; }
+      @media (prefers-reduced-motion: reduce) {
+        * { transition: none !important; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+
+      <!-- ============ REMOTE ============ -->
+      <section class="remote" aria-label="Điều khiển từ xa Mom TV">
+        <div class="r-top">
+          <div class="brand">Mom TV<small>Remote · Điều khiển</small></div>
+          <button class="power" id="btnPower" aria-label="Bật / tắt TV">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3v8"/><path d="M6.3 6.5a8 8 0 1 0 11.4 0"/></svg>
+          </button>
+        </div>
+
+        <div class="status">
+          <span class="dot" id="statusDot"></span>
+          <span id="statusText">Chưa ghép nối</span>
+          <span class="tv" id="statusTv"></span>
+        </div>
+
+        <div class="now" aria-live="polite">
+          <div class="label">Đang xem · Now playing</div>
+          <div class="chan" id="nowChan">—</div>
+          <div class="meta" id="nowMeta">Ghép nối với TV để bắt đầu</div>
+        </div>
+
+        <div class="dpad">
+          <div class="ring"></div>
+          <button class="dbtn d-up" data-cmd="up" aria-label="Lên">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 14l7-7 7 7"/></svg>
+          </button>
+          <button class="dbtn d-down" data-cmd="down" aria-label="Xuống">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 10l7 7 7-7"/></svg>
+          </button>
+          <button class="dbtn d-left" data-cmd="left" aria-label="Trái">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 5l-7 7 7 7"/></svg>
+          </button>
+          <button class="dbtn d-right" data-cmd="right" aria-label="Phải">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 5l7 7-7 7"/></svg>
+          </button>
+          <button class="ok" data-cmd="ok" aria-label="OK — chọn">OK</button>
+        </div>
+
+        <div class="row3">
+          <button class="rbtn" data-cmd="back" aria-label="Quay lại">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h9a7 7 0 0 1 0 14h-3"/></svg>
+            Quay lại
+          </button>
+          <button class="rbtn" data-cmd="home" aria-label="Trang chính">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 9.5V21h14V9.5"/></svg>
+            Trang chính
+          </button>
+          <button class="rbtn" data-cmd="menu" aria-label="Danh sách kênh">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+            Kênh
+          </button>
+        </div>
+
+        <div class="rockers">
+          <div class="rocker" aria-label="Âm lượng">
+            <button data-cmd="volup" aria-label="Tăng âm lượng">+</button>
+            <div class="mid">Âm lượng<div class="volbar"><i id="volFill"></i></div><span id="volText">40</span></div>
+            <button data-cmd="voldown" aria-label="Giảm âm lượng">−</button>
+          </div>
+          <div class="rocker" aria-label="Chuyển kênh">
+            <button data-cmd="chup" aria-label="Kênh tiếp theo">+</button>
+            <div class="mid">Kênh<br /><span id="chText">—</span></div>
+            <button data-cmd="chdown" aria-label="Kênh trước">−</button>
+          </div>
+        </div>
+
+        <div class="row3">
+          <button class="rbtn" data-cmd="mute" aria-label="Tắt tiếng">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 9l6 6M22 9l-6 6"/></svg>
+            Tắt tiếng
+          </button>
+          <button class="rbtn" data-cmd="playpause" aria-label="Phát / tạm dừng">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 5v14l11-7z"/><path d="M3 5v14"/></svg>
+            Phát / Dừng
+          </button>
+          <button class="rbtn" data-cmd="movies" aria-label="Mở Kho Phim">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18M8 5v14M16 5v14"/></svg>
+            Kho Phim
+          </button>
+        </div>
+
+        <div class="quick-label">Bấm là mở kênh · One-tap channels</div>
+        <div class="quick" id="quickGrid">
+          <button class="qbtn wide" data-chan="0">Vietnam Today</button>
+          <button class="qbtn" data-chan="1">VTV1</button>
+          <button class="qbtn" data-chan="2">VTV2</button>
+          <button class="qbtn" data-chan="3">VTV3</button>
+          <button class="qbtn" data-chan="4">VTV4</button>
+          <button class="qbtn" data-chan="5">VTV5</button>
+          <button class="qbtn" data-chan="6">THVL1</button>
+          <button class="qbtn" data-chan="7">THVL2</button>
+          <button class="qbtn" data-chan="8">THVL3</button>
+          <button class="qbtn" data-chan="9">THVL4</button>
+        </div>
+
+        <div class="toast" id="toast" aria-live="polite"></div>
+        <button class="unpair" id="btnUnpair" hidden>Ngắt kết nối với TV này</button>
+      </section>
+
+      <!-- ============ SIDE ============ -->
+      <div style="display:grid; gap:20px;">
+        <section class="panel" id="pairPanel">
+          <h2>Ghép nối với TV · Pair with the TV</h2>
+          <p>Mở <strong>Mom TV</strong> trên TV — màn hình TV hiện một mã 6 số. Nhập mã đó vào đây, điện thoại và TV phải dùng chung một mạng Wi-Fi ở nhà.</p>
+          <div id="pairForm">
+            <div class="code-row" id="codeRow">
+              <input inputmode="numeric" autocomplete="one-time-code" maxlength="1" aria-label="Số 1" />
+              <input inputmode="numeric" maxlength="1" aria-label="Số 2" />
+              <input inputmode="numeric" maxlength="1" aria-label="Số 3" />
+              <input inputmode="numeric" maxlength="1" aria-label="Số 4" />
+              <input inputmode="numeric" maxlength="1" aria-label="Số 5" />
+              <input inputmode="numeric" maxlength="1" aria-label="Số 6" />
+            </div>
+            <button class="pair-btn" id="btnPair" disabled>Ghép nối · Pair</button>
+            <div class="pair-err" id="pairErr"></div>
+          </div>
+          <div id="pairDone" hidden>
+            <p class="paired-note"><span class="dot"></span> Đã ghép nối với <strong>&nbsp;TV của Mẹ</strong></p>
+            <p style="margin-bottom:0;">Giờ bấm nút trên remote bên trái — kênh, âm lượng và nút OK đều gửi thẳng tới TV. Đổi kênh nhanh bằng các nút VTV / THVL ở dưới cùng của remote.</p>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>Cách dùng · How it works</h2>
+          <div class="tips">
+            <div class="tip">
+              <div class="ic">⬆️</div>
+              <div><strong>Lên / Xuống — đổi kênh</strong>Bấm nút lên xuống trên vòng tròn, hoặc nút + / − ở ô “Kênh”, để lật kênh giống remote thường.</div>
+            </div>
+            <div class="tip">
+              <div class="ic">👆</div>
+              <div><strong>Bấm thẳng tên kênh</strong>Các nút Vietnam Today, VTV1–VTV5, THVL1–THVL4 mở đúng kênh đó ngay, khỏi lật từng kênh một.</div>
+            </div>
+            <div class="tip">
+              <div class="ic">🎬</div>
+              <div><strong>Nút Kho Phim</strong>Mở thẳng mục phim trong Mom TV — chọn phim, chọn tập, coi tiếp đúng chỗ cũ.</div>
+            </div>
+            <div class="tip">
+              <div class="ic">⌨️</div>
+              <div><strong>Trên máy tính cũng bấm được</strong>Phím mũi tên = vòng điều hướng, Enter = OK, Esc = Quay lại, + / − = âm lượng.</div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <script>
+      (function () {
+        var CHANNELS = [
+          { name: "Vietnam Today", app: "VTV Go" },
+          { name: "VTV1", app: "VTV Go" },
+          { name: "VTV2", app: "VTV Go" },
+          { name: "VTV3", app: "VTV Go" },
+          { name: "VTV4", app: "VTV Go" },
+          { name: "VTV5", app: "VTV Go" },
+          { name: "THVL1", app: "THVLi TV" },
+          { name: "THVL2", app: "THVLi TV" },
+          { name: "THVL3", app: "THVLi TV" },
+          { name: "THVL4", app: "THVLi TV" }
+        ];
+        var LABELS = {
+          up: "▲ Lên", down: "▼ Xuống", left: "◀ Trái", right: "▶ Phải",
+          ok: "OK — Chọn", back: "↩ Quay lại", home: "Trang chính Mom TV",
+          menu: "Danh sách kênh", volup: "Âm lượng +", voldown: "Âm lượng −",
+          mute: "Tắt tiếng", playpause: "Phát / Dừng", movies: "Mở Kho Phim",
+          power: "Bật / Tắt TV"
+        };
+
+        var paired = false;
+        var powerOn = true;
+        var chanIdx = -1;
+        var volume = 40;
+        var muted = false;
+        var toastTimer = null;
+
+        var $ = function (id) { return document.getElementById(id); };
+        var toastEl = $("toast"), nowChan = $("nowChan"), nowMeta = $("nowMeta"),
+            volFill = $("volFill"), volText = $("volText"), chText = $("chText");
+
+        function buzz() { if (navigator.vibrate) { try { navigator.vibrate(12); } catch (e) {} } }
+        function toast(msg) {
+          toastEl.textContent = msg;
+          toastEl.classList.add("show");
+          clearTimeout(toastTimer);
+          toastTimer = setTimeout(function () { toastEl.classList.remove("show"); }, 1600);
+        }
+        function renderVol() {
+          volFill.style.width = (muted ? 0 : volume) + "%";
+          volText.textContent = muted ? "Tắt tiếng" : volume;
+        }
+        function renderChan() {
+          if (chanIdx < 0) {
+            nowChan.textContent = "—";
+            nowMeta.textContent = paired ? "Chọn một kênh để bắt đầu" : "Ghép nối với TV để bắt đầu";
+            chText.textContent = "—";
+          } else {
+            var c = CHANNELS[chanIdx];
+            nowChan.textContent = c.name;
+            nowMeta.textContent = "Qua ứng dụng " + c.app;
+            chText.textContent = c.name;
+          }
+          var btns = document.querySelectorAll(".qbtn");
+          for (var i = 0; i < btns.length; i++) {
+            btns[i].classList.toggle("current", Number(btns[i].getAttribute("data-chan")) === chanIdx);
+          }
+        }
+        function setChannel(i, silent) {
+          chanIdx = ((i % CHANNELS.length) + CHANNELS.length) % CHANNELS.length;
+          renderChan();
+          if (!silent) toast("📺 " + CHANNELS[chanIdx].name);
+        }
+        function needPair() { toast("Hãy ghép nối với TV trước"); $("pairPanel").scrollIntoView({ behavior: "smooth", block: "center" }); }
+
+        function send(cmd) {
+          buzz();
+          if (!paired) { needPair(); return; }
+          if (cmd === "power") {
+            powerOn = !powerOn;
+            toast(powerOn ? "TV: Bật" : "TV: Tắt");
+            nowMeta.textContent = powerOn ? nowMeta.textContent : "TV đang tắt";
+            if (powerOn) renderChan();
+            return;
+          }
+          if (!powerOn && cmd !== "power") { toast("TV đang tắt — bấm nút nguồn trước"); return; }
+          switch (cmd) {
+            case "volup": muted = false; volume = Math.min(100, volume + 5); renderVol(); toast("🔊 Âm lượng " + volume); break;
+            case "voldown": muted = false; volume = Math.max(0, volume - 5); renderVol(); toast("🔉 Âm lượng " + volume); break;
+            case "mute": muted = !muted; renderVol(); toast(muted ? "🔇 Đã tắt tiếng" : "🔊 Âm lượng " + volume); break;
+            case "chup": setChannel(chanIdx < 0 ? 0 : chanIdx + 1); break;
+            case "chdown": setChannel(chanIdx < 0 ? 0 : chanIdx - 1); break;
+            case "movies": toast("🎬 Mở Kho Phim"); nowMeta.textContent = "Kho Phim — chọn phim, chọn tập"; break;
+            case "home": toast("🏠 Trang chính Mom TV"); if (chanIdx >= 0) renderChan(); break;
+            default: toast(LABELS[cmd] || cmd);
+          }
+        }
+
+        var cmdBtns = document.querySelectorAll("[data-cmd]");
+        for (var i = 0; i < cmdBtns.length; i++) {
+          cmdBtns[i].addEventListener("click", function () { send(this.getAttribute("data-cmd")); });
+        }
+        $("btnPower").addEventListener("click", function () { send("power"); });
+        var qBtns = document.querySelectorAll(".qbtn");
+        for (var j = 0; j < qBtns.length; j++) {
+          qBtns[j].addEventListener("click", function () {
+            buzz();
+            if (!paired) { needPair(); return; }
+            if (!powerOn) { toast("TV đang tắt — bấm nút nguồn trước"); return; }
+            setChannel(Number(this.getAttribute("data-chan")));
+          });
+        }
+
+        document.addEventListener("keydown", function (e) {
+          if (e.target && e.target.tagName === "INPUT") return;
+          var map = { ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right",
+                      Enter: "ok", Escape: "back", Backspace: "back",
+                      PageUp: "chup", PageDown: "chdown", "+": "volup", "=": "volup", "-": "voldown" };
+          var cmd = map[e.key];
+          if (cmd) { e.preventDefault(); send(cmd); }
+        });
+
+        /* ---------- Pairing ---------- */
+        var inputs = Array.prototype.slice.call(document.querySelectorAll("#codeRow input"));
+        var btnPair = $("btnPair"), pairErr = $("pairErr");
+        function codeValue() { return inputs.map(function (n) { return n.value; }).join(""); }
+        function refreshPairBtn() { btnPair.disabled = codeValue().length !== 6; pairErr.textContent = ""; }
+        inputs.forEach(function (inp, idx) {
+          inp.addEventListener("input", function () {
+            inp.value = inp.value.replace(/\D/g, "").slice(0, 1);
+            if (inp.value && idx < inputs.length - 1) inputs[idx + 1].focus();
+            refreshPairBtn();
+          });
+          inp.addEventListener("keydown", function (e) {
+            if (e.key === "Backspace" && !inp.value && idx > 0) inputs[idx - 1].focus();
+          });
+          inp.addEventListener("paste", function (e) {
+            e.preventDefault();
+            var text = (e.clipboardData || window.clipboardData).getData("text").replace(/\D/g, "").slice(0, 6);
+            text.split("").forEach(function (ch, k) { if (inputs[k]) inputs[k].value = ch; });
+            if (text.length) inputs[Math.min(text.length, 5)].focus();
+            refreshPairBtn();
+          });
+        });
+        btnPair.addEventListener("click", function () {
+          if (!/^\d{6}$/.test(codeValue())) { pairErr.textContent = "Mã gồm đúng 6 số — xem trên màn hình TV."; return; }
+          paired = true; powerOn = true;
+          $("statusDot").classList.add("on");
+          $("statusText").textContent = "Đã ghép nối";
+          $("statusTv").textContent = "TV của Mẹ";
+          $("pairForm").hidden = true;
+          $("pairDone").hidden = false;
+          $("btnUnpair").hidden = false;
+          setChannel(0, true);
+          toast("✅ Đã ghép nối với TV của Mẹ");
+          buzz();
+        });
+        $("btnUnpair").addEventListener("click", function () {
+          paired = false; chanIdx = -1;
+          $("statusDot").classList.remove("on");
+          $("statusText").textContent = "Chưa ghép nối";
+          $("statusTv").textContent = "";
+          $("pairForm").hidden = false;
+          $("pairDone").hidden = true;
+          $("btnUnpair").hidden = true;
+          inputs.forEach(function (n) { n.value = ""; });
+          refreshPairBtn(); renderChan();
+          toast("Đã ngắt kết nối");
+        });
+
+        renderVol(); renderChan();
+      })();
+    </script>
+  </body>
+</html>
