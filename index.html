@@ -721,6 +721,13 @@
       body.is-waiting { overflow: hidden; }
       body.is-waiting .stage { display: none; }
       body:not(.is-waiting) .wait-screen { display: none; }
+      /* While the phone is connected and playing, the TV shows only the
+         clean now-playing screen below — never the full web page UI and
+         never the pairing code. The code comes back only when the phone
+         disconnects (body returns to .is-waiting). */
+      body.is-playing { overflow: hidden; }
+      body.is-playing .stage { display: none; }
+      body:not(.is-playing) .play-screen { display: none; }
       .wait-screen {
         position: fixed;
         inset: 0;
@@ -804,6 +811,63 @@
       }
       .wait-help b { color: var(--ink); }
 
+      /* ---------- Now-playing screen (phone connected, channel picked) ----------
+         Mirrors whatever was pressed on the phone: the channel/film name
+         big, what it is playing in, and the two clocks. No menus, no list,
+         no pairing code — the code only exists on the waiting screen. */
+      .play-screen {
+        position: fixed;
+        inset: 0;
+        z-index: 40;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: clamp(14px, 3vw, 32px);
+        overflow-y: auto;
+      }
+      .play-card {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 26px;
+        padding: clamp(24px, 4.5vw, 46px);
+        width: 100%;
+        max-width: 780px;
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: clamp(12px, 2.4vh, 20px);
+      }
+      .play-name {
+        margin: 0;
+        font-size: clamp(3.2rem, 11vw, 6.2rem);
+        font-weight: 900;
+        line-height: 1.02;
+      }
+      .play-desc {
+        margin: 0;
+        font-size: clamp(1.3rem, 3.6vw, 1.8rem);
+        font-weight: 700;
+        color: var(--ink-dim);
+        line-height: 1.35;
+      }
+      .play-note {
+        margin: 0;
+        font-size: clamp(1.1rem, 3vw, 1.4rem);
+        font-weight: 800;
+        line-height: 1.4;
+      }
+      .play-status {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        margin: 0;
+        font-size: clamp(1.02rem, 2.6vw, 1.2rem);
+        font-weight: 800;
+        color: var(--ink-dim);
+        line-height: 1.4;
+      }
+
       @media (prefers-reduced-motion: reduce) {
         .live-dot { animation: none; }
         .flip button:active { transform: none; }
@@ -824,6 +888,20 @@
         <div class="wait-code" id="wait-code" aria-label="Mã ghép nối gồm 6 số">• • • • • •</div>
         <div class="wait-status"><span class="pair-dot wait" id="wait-dot"></span><span id="wait-status-text">Đang tạo mã…</span></div>
         <p class="wait-help">Trên điện thoại, Mẹ mở <b>Mom TV Remote</b>, nhập mã 6 số này, rồi <b>bấm vào kênh</b> muốn xem — bấm <b>VTV1</b> thì TV phát VTV1, bấm <b>VTV3</b> thì TV phát VTV3. Muốn đổi kênh, cứ bấm kênh khác trên điện thoại.</p>
+      </div>
+    </section>
+
+    <section class="play-screen" id="play-screen" aria-label="Đang phát — kênh Mẹ chọn trên điện thoại">
+      <div class="play-card">
+        <span class="live-badge" id="play-badge"><span class="live-dot" aria-hidden="true"></span><span id="play-badge-text">TRỰC TIẾP</span></span>
+        <h2 class="play-name" id="play-name">VTV1</h2>
+        <p class="play-desc" id="play-desc">Tin tức &amp; thời sự</p>
+        <p class="play-note" id="play-note">Đang phát trong ứng dụng VTV Go trên TV</p>
+        <div class="wait-clocks" aria-label="Giờ ở Florida và Nha Trang">
+          <span class="wait-clock"><span class="wc-place">Florida</span><span id="play-clock-fl">--:--</span></span>
+          <span class="wait-clock"><span class="wc-place">Nha Trang</span><span id="play-clock-vn">--:--</span></span>
+        </div>
+        <p class="play-status"><span class="pair-dot on" aria-hidden="true"></span><span>Đã kết nối điện thoại — muốn đổi kênh, Mẹ bấm kênh khác trên điện thoại nhé</span></p>
       </div>
     </section>
 
@@ -1136,7 +1214,12 @@
       function startPlayback(idx) {
         var first = !hasStarted;
         hasStarted = true;
-        if (first) { document.body.classList.remove("is-waiting"); }
+        if (first) {
+          // Leave the code screen for the clean now-playing screen: the TV
+          // shows only what was pressed on the phone, never the full page.
+          document.body.classList.remove("is-waiting");
+          document.body.classList.add("is-playing");
+        }
         showHome();
         if (mode !== "live") { setMode("live", false); }
         select(idx, true);
@@ -1376,6 +1459,13 @@
       var elWaitStatus = document.getElementById("wait-status-text");
       var elWaitClockFl = document.getElementById("wait-clock-fl");
       var elWaitClockVn = document.getElementById("wait-clock-vn");
+      var elPlayName = document.getElementById("play-name");
+      var elPlayDesc = document.getElementById("play-desc");
+      var elPlayNote = document.getElementById("play-note");
+      var elPlayBadge = document.getElementById("play-badge");
+      var elPlayBadgeText = document.getElementById("play-badge-text");
+      var elPlayClockFl = document.getElementById("play-clock-fl");
+      var elPlayClockVn = document.getElementById("play-clock-vn");
       var elRemoteToast = document.getElementById("remote-toast");
       var mtvPeer = null;
       var mtvConns = [];
@@ -1399,7 +1489,37 @@
         elWaitDot.className = "pair-dot " + cls;
         elWaitStatus.textContent = text;
       }
+      /* The now-playing screen mirrors whatever was pressed on the phone:
+         the picked channel, film category, or episode title — nothing else. */
+      function syncPlayScreen() {
+        var name, desc, note;
+        if (view === "detail") {
+          name = elDetailTitle.textContent;
+          desc = elDetailMeta.textContent;
+          note = elEpChosen.textContent || "Mẹ chọn tập trên điện thoại để xem nhé";
+        } else if (view === "movies") {
+          name = elMoviesTitle.textContent;
+          desc = "Kho Phim";
+          note = "Bấm vào hình phim trên điện thoại, rồi chọn tập nhé";
+        } else if (mode === "live") {
+          var ch = CHANNELS[currentLive];
+          name = ch.name;
+          desc = ch.desc;
+          note = "Đang phát trong ứng dụng " + ch.app + " trên TV";
+        } else {
+          var f = FILMS[currentFilm];
+          name = f.name;
+          desc = f.desc;
+          note = "Bấm OK trên điện thoại để xem hình phim & chọn tập";
+        }
+        elPlayName.textContent = name;
+        elPlayDesc.textContent = desc;
+        elPlayNote.textContent = note;
+        elPlayBadgeText.textContent = mode === "live" ? "TRỰC TIẾP" : "KHO PHIM";
+        elPlayBadge.classList.toggle("film", mode !== "live");
+      }
       function notifyRemote() {
+        syncPlayScreen();
         if (!mtvConns.length) { return; }
         var name = view === "detail" ? elDetailTitle.textContent
           : view === "movies" ? elMoviesTitle.textContent
@@ -1487,6 +1607,22 @@
         }
         if (data.cmd) { handleRemoteCmd(String(data.cmd)); }
       }
+      /* Phone gone: the TV goes straight back to the wallpaper + big code
+         screen (same code — the peer keeps it), so Mom can type the code
+         on the phone and reconnect. The code is shown ONLY in this state,
+         never while the phone is connected and playing. */
+      function onPhoneGone() {
+        hasStarted = false;
+        document.body.classList.remove("is-playing");
+        document.body.classList.add("is-waiting");
+        setPairStatus("wait", "Điện thoại đã ngắt kết nối — nhập mã này trên điện thoại để nối lại");
+        tvToast("📱 Điện thoại đã ngắt kết nối — TV đang hiện mã để nối lại");
+      }
+      function dropConn(conn) {
+        var had = mtvConns.length;
+        mtvConns = mtvConns.filter(function (c) { return c !== conn; });
+        if (had && !mtvConns.length) { onPhoneGone(); }
+      }
       function setupConn(conn) {
         conn.on("open", function () {
           mtvConns.push(conn);
@@ -1500,9 +1636,11 @@
           notifyRemote();
         });
         conn.on("data", handleRemoteData);
-        conn.on("close", function () {
-          mtvConns = mtvConns.filter(function (c) { return c !== conn; });
-          if (!mtvConns.length) { setPairStatus("wait", "Chờ điện thoại nhập mã này"); }
+        conn.on("close", function () { dropConn(conn); });
+        // WebRTC can die without a clean close (phone Wi-Fi drop, app
+        // killed): treat a closed/failed ICE state as a disconnect too.
+        conn.on("iceStateChanged", function (state) {
+          if (state === "closed" || state === "failed") { dropConn(conn); }
         });
       }
       function startPairing() {
@@ -1576,6 +1714,8 @@
         document.getElementById("day-vn").textContent = vn.day;
         if (elWaitClockFl) { elWaitClockFl.textContent = fl.time + " • " + fl.day; }
         if (elWaitClockVn) { elWaitClockVn.textContent = vn.time + " • " + vn.day; }
+        if (elPlayClockFl) { elPlayClockFl.textContent = fl.time + " • " + fl.day; }
+        if (elPlayClockVn) { elPlayClockVn.textContent = vn.time + " • " + vn.day; }
       }
       tick();
       setInterval(tick, 20000);
