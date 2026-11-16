@@ -172,7 +172,7 @@
         .tab { flex-direction: column; text-align: center; gap: 8px; padding: 14px 10px; }
       }
       .live-badge.film { background: var(--teal); }
-      .chan .num.code { font-size: 1.05rem; letter-spacing: 0.02em; }
+      .chan .num.code { font-size: 1.05rem; letter-spacing: 0.02em; width: auto; min-width: 54px; padding: 0 10px; }
 
       /* ---------- Main split ---------- */
       .main {
@@ -305,51 +305,57 @@
         border-radius: 2px;
       }
       .group .list {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+        align-items: stretch;
       }
+      .group .list .chan:only-child { grid-column: 1 / -1; }
       .chan {
         appearance: none;
         width: 100%;
-        text-align: left;
+        height: 100%;
+        text-align: center;
         border: 2px solid var(--line);
         background: var(--panel-soft);
         color: var(--ink);
         border-radius: 18px;
-        min-height: 84px;
-        padding: 12px 18px 12px 14px;
+        min-height: 138px;
+        padding: 16px 10px 14px;
         font: inherit;
         cursor: pointer;
         display: flex;
+        flex-direction: column;
         align-items: center;
-        gap: 16px;
+        justify-content: center;
+        gap: 10px;
       }
       .chan:hover { background: var(--btn-bg-hover); }
       .chan .num {
         flex: 0 0 auto;
-        width: 56px; height: 56px;
-        border-radius: 14px;
+        width: 54px; height: 54px;
+        border-radius: 16px;
         background: var(--teal);
         color: #eafaf3;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 1.55rem;
+        font-size: 1.5rem;
         font-weight: 900;
         font-variant-numeric: tabular-nums;
       }
-      .chan .meta { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
-      .chan .name { font-size: clamp(1.45rem, 4.4vw, 1.8rem); font-weight: 900; line-height: 1.1; }
-      .chan .sub { font-size: 1.02rem; font-weight: 700; color: var(--ink-dim); }
+      .chan .meta { display: flex; flex-direction: column; gap: 3px; min-width: 0; align-items: center; text-align: center; }
+      .chan .name { font-size: clamp(1.35rem, 3.6vw, 1.65rem); font-weight: 900; line-height: 1.1; }
+      .chan .sub { font-size: 0.98rem; font-weight: 700; color: var(--ink-dim); line-height: 1.3; }
       .chan .watching {
-        margin-left: auto;
+        margin-left: 0;
+        margin-top: 2px;
         flex: 0 0 auto;
         display: none;
         align-items: center;
         gap: 7px;
         font-weight: 900;
-        font-size: 0.95rem;
+        font-size: 0.92rem;
         color: var(--gold-ink);
         background: var(--gold);
         padding: 6px 13px;
@@ -713,6 +719,62 @@
       }
       .remote-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
+      /* ---------- Reconnect code bar (phone dropped, TV keeps playing) ----------
+         When the iPhone disconnects mid-playback, the video is NEVER
+         interrupted and the TV never drops back to the full code screen.
+         Instead this compact bar overlays the corner of whatever is
+         playing, so the code is right there on the TV the moment the
+         phone asks for it to reconnect. It hides itself the instant the
+         phone is connected again. */
+      .reconnect-bar {
+        position: fixed;
+        left: 50%;
+        bottom: 22px;
+        transform: translateX(-50%) translateY(24px);
+        z-index: 60;
+        display: none;
+        align-items: center;
+        gap: 16px;
+        flex-wrap: wrap;
+        justify-content: center;
+        background: var(--panel);
+        border: 2px solid var(--gold);
+        border-radius: 18px;
+        padding: 12px 20px;
+        max-width: min(94vw, 760px);
+        text-align: center;
+        box-shadow: 0 10px 34px rgba(0, 0, 0, 0.45);
+        opacity: 0;
+        transition: opacity 0.25s, transform 0.25s;
+      }
+      .reconnect-bar.show { display: flex; opacity: 1; transform: translateX(-50%) translateY(0); }
+      .reconnect-bar.pulse { animation: reconnect-pulse 0.9s ease-in-out 2; }
+      @keyframes reconnect-pulse {
+        0%, 100% { box-shadow: 0 10px 34px rgba(0, 0, 0, 0.45); }
+        50% { box-shadow: 0 0 0 6px var(--gold), 0 10px 34px rgba(0, 0, 0, 0.45); }
+      }
+      .reconnect-label {
+        font-size: clamp(1rem, 2.6vw, 1.2rem);
+        font-weight: 800;
+        line-height: 1.35;
+      }
+      .reconnect-code {
+        font-size: clamp(1.7rem, 5vw, 2.4rem);
+        font-weight: 900;
+        letter-spacing: 0.1em;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+        background: var(--btn-bg);
+        border: 2px dashed var(--gold);
+        border-radius: 12px;
+        padding: 4px 16px;
+        line-height: 1.2;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .reconnect-bar { transition: none; }
+        .reconnect-bar.pulse { animation: none; }
+      }
+
       /* ---------- Waiting screen (wallpaper + code only) ----------
          Until the phone pairs and picks a channel, the TV shows nothing
          but the Nha Trang wallpaper, the clocks, and the big pairing code.
@@ -723,11 +785,18 @@
       body:not(.is-waiting) .wait-screen { display: none; }
       /* While the phone is connected and playing, the TV shows only the
          clean now-playing screen below — never the full web page UI and
-         never the pairing code. The code comes back only when the phone
-         disconnects (body returns to .is-waiting). */
+         never the pairing code. If the phone disconnects mid-playback,
+         the TV KEEPS PLAYING (it never returns to .is-waiting); only the
+         compact reconnect bar (.reconnect-bar) overlays the code so the
+         phone can read it when it asks to reconnect. */
       body.is-playing { overflow: hidden; }
       body.is-playing .stage { display: none; }
       body:not(.is-playing) .play-screen { display: none; }
+      /* While a live channel is playing, the TV shows the in-page video
+         player full-screen — the video plays inside Mom TV itself. */
+      body.is-watching { overflow: hidden; }
+      body.is-watching .stage { display: none; }
+      body:not(.is-watching) .player-screen { display: none; }
       .wait-screen {
         position: fixed;
         inset: 0;
@@ -868,6 +937,91 @@
         line-height: 1.4;
       }
 
+      /* ---------- In-page video player (live channels) ---------- */
+      .player-screen {
+        position: fixed;
+        inset: 0;
+        z-index: 45;
+        background: #000;
+      }
+      .player-screen video {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        background: #000;
+      }
+      .player-top {
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        z-index: 2;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 18px 22px 26px;
+        background: linear-gradient(180deg, rgba(0,0,0,0.55), transparent);
+        transition: opacity 0.6s;
+      }
+      .player-top.fade { opacity: 0; }
+      .player-chan {
+        font-size: clamp(1.6rem, 4.5vw, 2.4rem);
+        font-weight: 900;
+        color: #fff;
+        line-height: 1.1;
+      }
+      .player-center {
+        position: absolute;
+        inset: 0;
+        z-index: 3;
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 18px;
+        padding: 24px;
+        text-align: center;
+        background: rgba(0, 0, 0, 0.45);
+      }
+      .player-center.show { display: flex; }
+      .player-state {
+        margin: 0;
+        font-size: clamp(1.3rem, 3.6vw, 1.9rem);
+        font-weight: 800;
+        color: #fff;
+        max-width: 660px;
+        line-height: 1.4;
+      }
+      .player-spinner {
+        width: 54px; height: 54px;
+        border-radius: 50%;
+        border: 6px solid rgba(255, 255, 255, 0.25);
+        border-top-color: var(--gold);
+        animation: spin 0.9s linear infinite;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      .player-actions { display: none; gap: 12px; flex-wrap: wrap; justify-content: center; }
+      .player-actions.show { display: flex; }
+      .player-actions .open-btn { display: flex; width: auto; min-width: 230px; }
+      .player-actions .open-btn.alt {
+        background: rgba(255, 255, 255, 0.12);
+        color: #fff;
+        border: 2px solid rgba(255, 255, 255, 0.45);
+      }
+      .player-clocks {
+        position: absolute;
+        right: 18px;
+        bottom: 14px;
+        z-index: 2;
+        display: flex;
+        gap: 8px;
+        opacity: 0.85;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .player-spinner { animation: none; }
+        .player-top { transition: none; }
+      }
+
       @media (prefers-reduced-motion: reduce) {
         .live-dot { animation: none; }
         .flip button:active { transform: none; }
@@ -887,7 +1041,7 @@
         <p class="wait-label">Nhập mã này trên điện thoại:</p>
         <div class="wait-code" id="wait-code" aria-label="Mã ghép nối gồm 6 số">• • • • • •</div>
         <div class="wait-status"><span class="pair-dot wait" id="wait-dot"></span><span id="wait-status-text">Đang tạo mã…</span></div>
-        <p class="wait-help">Trên điện thoại, Mẹ mở <b>Mom TV Remote</b>, nhập mã 6 số này, rồi <b>bấm vào kênh</b> muốn xem — bấm <b>VTV1</b> thì TV phát VTV1, bấm <b>VTV3</b> thì TV phát VTV3. Muốn đổi kênh, cứ bấm kênh khác trên điện thoại.</p>
+        <p class="wait-help">Trên điện thoại, Mẹ mở <b>Mom TV Remote</b>, nhập mã 6 số này, rồi <b>bấm vào kênh</b> muốn xem — kênh sẽ <b>phát ngay trên TV này</b>, không mở ứng dụng khác. Muốn đổi kênh, cứ bấm kênh khác trên điện thoại.</p>
       </div>
     </section>
 
@@ -896,12 +1050,32 @@
         <span class="live-badge" id="play-badge"><span class="live-dot" aria-hidden="true"></span><span id="play-badge-text">TRỰC TIẾP</span></span>
         <h2 class="play-name" id="play-name">VTV1</h2>
         <p class="play-desc" id="play-desc">Tin tức &amp; thời sự</p>
-        <p class="play-note" id="play-note">Đang phát trong ứng dụng VTV Go trên TV</p>
+        <p class="play-note" id="play-note">Đang phát ngay trên Mom TV</p>
         <div class="wait-clocks" aria-label="Giờ ở Florida và Nha Trang">
           <span class="wait-clock"><span class="wc-place">Florida</span><span id="play-clock-fl">--:--</span></span>
           <span class="wait-clock"><span class="wc-place">Nha Trang</span><span id="play-clock-vn">--:--</span></span>
         </div>
         <p class="play-status"><span class="pair-dot on" aria-hidden="true"></span><span>Đã kết nối điện thoại — muốn đổi kênh, Mẹ bấm kênh khác trên điện thoại nhé</span></p>
+      </div>
+    </section>
+
+    <section class="player-screen" id="player-screen" aria-label="Đang phát video ngay trên Mom TV">
+      <video id="player-video" playsinline></video>
+      <div class="player-top" id="player-top">
+        <span class="live-badge"><span class="live-dot" aria-hidden="true"></span>TRỰC TIẾP</span>
+        <span class="player-chan" id="player-chan">VTV1</span>
+      </div>
+      <div class="player-center" id="player-center">
+        <div class="player-spinner" id="player-spinner" aria-hidden="true"></div>
+        <p class="player-state" id="player-state">Đang tải…</p>
+        <div class="player-actions" id="player-actions">
+          <button type="button" class="open-btn" id="btn-retry">↻ Thử lại</button>
+          <button type="button" class="open-btn alt" id="btn-app-fallback">▶ Mở trong VTV Go</button>
+        </div>
+      </div>
+      <div class="player-clocks" aria-label="Giờ ở Florida và Nha Trang">
+        <span class="wait-clock"><span class="wc-place">Florida</span><span id="player-clock-fl">--:--</span></span>
+        <span class="wait-clock"><span class="wc-place">Nha Trang</span><span id="player-clock-vn">--:--</span></span>
       </div>
     </section>
 
@@ -1011,26 +1185,38 @@
       <p class="hint" id="hint">Bấm <b>▲ ▼</b> để đổi mục &nbsp;•&nbsp; Bấm <b>◀ ▶</b> để qua lại giữa TV và Kho Phim &nbsp;•&nbsp; Bấm <b>số 1–9</b>, <b>số 0</b> là mục 10</p>
     </div>
 
+    <div class="reconnect-bar" id="reconnect-bar" role="status" aria-label="Mã nối lại điện thoại — TV vẫn đang phát">
+      <span class="reconnect-label">📱 Điện thoại đã ngắt kết nối — TV vẫn đang phát.<br />Nhập mã này trên điện thoại để nối lại:</span>
+      <span class="reconnect-code" id="reconnect-code" aria-label="Mã ghép nối gồm 6 số">• • • • • •</span>
+    </div>
+
     <div class="remote-toast" id="remote-toast" aria-live="polite"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js"></script>
     <script>
-      // Live channels play inside their official free app on the TV:
-      // VTV channels + Vietnam Today in VTV Go, THVL channels in THVLi.
-      // A channel pick launches that app on the TV (Android intent), so
-      // real video with sound starts playing — the web page itself cannot
-      // play these streams (the broadcasters' CDNs block in-browser play).
+      // Live channels play INSIDE Mom TV itself — the page plays each
+      // channel's free public HLS stream in its own <video> player
+      // (hls.js), so a channel pick never leaves this app and Back never
+      // drops Mom out of it. Sources are tried in order; the official
+      // app (VTV Go / THVLi) is kept only as a last-resort button if a
+      // stream cannot load in the page. Stream notes (checked Nov 2026):
+      // VTV1's feed is the one carried by Vietnam's national digital-TV
+      // platform (truyenhinhso.vn) and Vietnam Today's is its official
+      // Amagi FAST feed — both verified end-to-end (playlist + segments,
+      // CORS open) from the US. The remaining channels use the public
+      // stream listings for the same free-to-air broadcasts.
       var CHANNELS = [
-        { group: "VTV", name: "VTV1", desc: "Tin tức & thời sự", app: "VTV Go", pkg: "vn.vtv.vtvgotv" },
-        { group: "VTV", name: "VTV2", desc: "Khoa học & đời sống", app: "VTV Go", pkg: "vn.vtv.vtvgotv" },
-        { group: "VTV", name: "VTV3", desc: "Giải trí & phim truyện", app: "VTV Go", pkg: "vn.vtv.vtvgotv" },
-        { group: "VTV", name: "VTV4", desc: "Kênh quốc tế của VTV", app: "VTV Go", pkg: "vn.vtv.vtvgotv" },
-        { group: "VTV", name: "VTV5", desc: "Chương trình tiếng dân tộc", app: "VTV Go", pkg: "vn.vtv.vtvgotv" },
-        { group: "Vietnam Today", name: "Vietnam Today", desc: "Tin tức Việt Nam bằng tiếng Anh", app: "VTV Go", pkg: "vn.vtv.vtvgotv" },
-        { group: "THVL — Vĩnh Long", name: "THVL1", desc: "Phim truyện & giải trí", app: "THVLi", pkg: "vn.thvli.androidtv" },
-        { group: "THVL — Vĩnh Long", name: "THVL2", desc: "Văn hóa & đời sống", app: "THVLi", pkg: "vn.thvli.androidtv" },
-        { group: "THVL — Vĩnh Long", name: "THVL3", desc: "Giải trí cho giới trẻ", app: "THVLi", pkg: "vn.thvli.androidtv" },
-        { group: "THVL — Vĩnh Long", name: "THVL4", desc: "Kênh tổng hợp Vĩnh Long", app: "THVLi", pkg: "vn.thvli.androidtv" }
+        { group: "VTV", name: "VTV1", desc: "Tin tức & thời sự", app: "VTV Go", pkg: "vn.vtv.vtvgotv", streams: ["https://luuchieu.truyenhinhso.vn/media/live/C90B082632CD4A75F4B3EDB3/index.m3u8", "https://dethich.pw/vtv1/index.m3u8"] },
+        { group: "VTV", name: "VTV2", desc: "Khoa học & đời sống", app: "VTV Go", pkg: "vn.vtv.vtvgotv", streams: ["https://dethich.pw/vtv2/index.m3u8"] },
+        { group: "VTV", name: "VTV3", desc: "Giải trí & phim truyện", app: "VTV Go", pkg: "vn.vtv.vtvgotv", streams: ["https://dethich.pw/vtv3/index.m3u8"] },
+        { group: "VTV", name: "VTV4", desc: "Kênh quốc tế của VTV", app: "VTV Go", pkg: "vn.vtv.vtvgotv", streams: ["https://dethich.pw/vtv4/index.m3u8"] },
+        { group: "VTV", name: "VTV5", desc: "Chương trình tiếng dân tộc", app: "VTV Go", pkg: "vn.vtv.vtvgotv", streams: ["https://dethich.pw/vtv5/index.m3u8"] },
+        { group: "Vietnam Today", name: "Vietnam Today", desc: "Tin tức Việt Nam bằng tiếng Anh", app: "VTV Go", pkg: "vn.vtv.vtvgotv", streams: ["https://amagi-live.ondemandkorea.com/amgplt0456.m3u8", "https://live.tvon.vn/s8/hls/vntoday/index.m3u8"] },
+        { group: "THVL — Vĩnh Long", name: "THVL1", desc: "Phim truyện & giải trí", app: "THVLi", pkg: "vn.thvli.androidtv", streams: ["https://dethich.pw/thvl1/index.m3u8"] },
+        { group: "THVL — Vĩnh Long", name: "THVL2", desc: "Văn hóa & đời sống", app: "THVLi", pkg: "vn.thvli.androidtv", streams: ["https://dethich.pw/thvl2/index.m3u8"] },
+        { group: "THVL — Vĩnh Long", name: "THVL3", desc: "Giải trí cho giới trẻ", app: "THVLi", pkg: "vn.thvli.androidtv", streams: ["https://dethich.pw/thvl3/index.m3u8"] },
+        { group: "THVL — Vĩnh Long", name: "THVL4", desc: "Kênh tổng hợp Vĩnh Long", app: "THVLi", pkg: "vn.thvli.androidtv", streams: ["https://dethich.pw/thvl4/index.m3u8"] }
       ];
 
       var FILMS = [
@@ -1164,8 +1350,8 @@
           elDownLabel.textContent = "Kênh sau";
           elPoster.classList.remove("show");
           elOpenBtn.classList.remove("show");
-          elAppNote.textContent = "📺 Kênh này phát trong ứng dụng " + ch.app + " trên TV";
-          elPlayBtn.textContent = "▶ Phát " + ch.name + " — mở " + ch.app;
+          elAppNote.textContent = "📺 Kênh này phát ngay trong Mom TV — không mở ứng dụng khác";
+          elPlayBtn.textContent = "▶ Phát " + ch.name + " ngay trên TV";
           elPlayBtn.classList.add("show");
         } else {
           elNum.textContent = "Mục " + (idx + 1) + " / " + list.length;
@@ -1189,11 +1375,158 @@
         notifyRemote();
       }
 
-      /* Open the channel's official app on the TV (VTV Go for VTV +
-         Vietnam Today, THVLi for THVL) so real video starts playing.
-         An Android intent:// link is the way a web page asks Fire TV /
-         Android TV to launch an installed app; on a desktop browser it
-         is simply ignored, and the on-screen panel still shows the pick. */
+      /* ---------- In-page video player ----------
+         A channel pick now plays the channel's HLS stream in Mom TV's
+         own full-screen <video> player — the page never hands off to
+         VTV Go / THVLi, so Back can never drop Mom out of this app.
+         The official app is offered only as a fallback button when a
+         stream fails to load in the page after every source is tried. */
+      var uiState = "waiting"; // "waiting" | "playing" (info card) | "watching" (video)
+      var videoEl = document.getElementById("player-video");
+      var elPlayerTop = document.getElementById("player-top");
+      var elPlayerChan = document.getElementById("player-chan");
+      var elPlayerCenter = document.getElementById("player-center");
+      var elPlayerState = document.getElementById("player-state");
+      var elPlayerSpinner = document.getElementById("player-spinner");
+      var elPlayerActions = document.getElementById("player-actions");
+      var elBtnRetry = document.getElementById("btn-retry");
+      var elBtnAppFallback = document.getElementById("btn-app-fallback");
+      var elPlayerClockFl = document.getElementById("player-clock-fl");
+      var elPlayerClockVn = document.getElementById("player-clock-vn");
+      var hlsInst = null;
+      var loadTimer = null;
+      var overlayTimer = null;
+      var srcIdx = 0;
+      var curStreamCh = null;
+      var needsUnmute = false;
+      var playerError = false;
+
+      function applyScreens() {
+        document.body.classList.toggle("is-waiting", uiState === "waiting");
+        document.body.classList.toggle("is-playing", uiState === "playing");
+        document.body.classList.toggle("is-watching", uiState === "watching");
+        if (uiState !== "watching") { stopVideo(); }
+      }
+      function destroyHls() {
+        if (hlsInst) { try { hlsInst.destroy(); } catch (err) {} hlsInst = null; }
+      }
+      function stopVideo() {
+        clearTimeout(loadTimer);
+        destroyHls();
+        curStreamCh = null;
+        playerError = false;
+        if (videoEl) {
+          try { videoEl.pause(); } catch (err) {}
+          videoEl.removeAttribute("src");
+          try { videoEl.load(); } catch (err) {}
+        }
+      }
+      function pokeOverlay() {
+        elPlayerTop.classList.remove("fade");
+        clearTimeout(overlayTimer);
+        overlayTimer = setTimeout(function () { elPlayerTop.classList.add("fade"); }, 5000);
+      }
+      function setPlayerLoading(ch) {
+        elPlayerChan.textContent = ch.name;
+        elPlayerState.textContent = "Đang tải " + ch.name + "…";
+        elPlayerSpinner.style.display = "";
+        elPlayerActions.classList.remove("show");
+        elPlayerCenter.classList.add("show");
+        pokeOverlay();
+      }
+      function showPlayerError(ch) {
+        playerError = true;
+        destroyHls();
+        elPlayerTop.classList.remove("fade");
+        elPlayerState.textContent = "Kênh " + ch.name + " chưa phát được ngay trên TV. Mẹ bấm Thử lại, hoặc mở trong ứng dụng " + ch.app + " nhé.";
+        elPlayerSpinner.style.display = "none";
+        elBtnAppFallback.textContent = "▶ Mở trong " + ch.app;
+        elPlayerActions.classList.add("show");
+        elPlayerCenter.classList.add("show");
+        elBtnRetry.focus({ preventScroll: true });
+      }
+      function nextSource() {
+        if (!curStreamCh || uiState !== "watching") { return; }
+        if (srcIdx + 1 < curStreamCh.streams.length) { loadStream(curStreamCh, srcIdx + 1); }
+        else { showPlayerError(curStreamCh); }
+      }
+      function attemptPlay() {
+        var p = videoEl.play();
+        if (p && p.catch) {
+          p.catch(function () {
+            // Autoplay-with-sound was refused: start muted, and the next
+            // tap on the phone remote turns the sound back on.
+            videoEl.muted = true;
+            needsUnmute = true;
+            var p2 = videoEl.play();
+            if (p2 && p2.catch) { p2.catch(function () {}); }
+          });
+        }
+      }
+      function loadStream(ch, i) {
+        curStreamCh = ch;
+        srcIdx = i;
+        playerError = false;
+        destroyHls();
+        try { videoEl.pause(); } catch (err) {}
+        videoEl.removeAttribute("src");
+        try { videoEl.load(); } catch (err) {}
+        setPlayerLoading(ch);
+        clearTimeout(loadTimer);
+        loadTimer = setTimeout(nextSource, 14000);
+        if (window.Hls && Hls.isSupported()) {
+          hlsInst = new Hls({ liveSyncDurationCount: 3, maxLiveSyncPlaybackRate: 1.5, backBufferLength: 30 });
+          hlsInst.loadSource(ch.streams[i]);
+          hlsInst.attachMedia(videoEl);
+          hlsInst.on(Hls.Events.ERROR, function (ev, data) {
+            if (data && data.fatal) { clearTimeout(loadTimer); nextSource(); }
+          });
+        } else if (videoEl.canPlayType("application/vnd.apple.mpegurl")) {
+          videoEl.src = ch.streams[i];
+        } else {
+          clearTimeout(loadTimer);
+          nextSource();
+          return;
+        }
+        attemptPlay();
+      }
+      videoEl.addEventListener("playing", function () {
+        clearTimeout(loadTimer);
+        if (uiState === "watching" && !playerError) {
+          elPlayerCenter.classList.remove("show");
+          pokeOverlay();
+        }
+      });
+      videoEl.addEventListener("error", function () {
+        if (!hlsInst && curStreamCh && uiState === "watching" && !playerError) {
+          clearTimeout(loadTimer);
+          nextSource();
+        }
+      });
+      function playChannel(idx) {
+        if (mode !== "live") { setMode("live", false); }
+        select(idx, false);
+        loadStream(CHANNELS[idx], 0);
+      }
+      function togglePause() {
+        if (!curStreamCh || playerError) { return; }
+        if (videoEl.paused) {
+          attemptPlay();
+          elPlayerCenter.classList.remove("show");
+          pokeOverlay();
+        } else {
+          videoEl.pause();
+          elPlayerState.textContent = "⏸ Đang tạm dừng " + curStreamCh.name + " — bấm OK để phát tiếp";
+          elPlayerSpinner.style.display = "none";
+          elPlayerActions.classList.remove("show");
+          elPlayerCenter.classList.add("show");
+          elPlayerTop.classList.remove("fade");
+        }
+      }
+      /* Fallback only: open the channel's official app on the TV (VTV Go
+         for VTV + Vietnam Today, THVLi for THVL) via an Android intent.
+         Used solely from the player error screen, when in-page playback
+         could not load the stream. */
       function launchChannelApp(ch) {
         if (!ch || !ch.pkg) { return; }
         var intentUrl = "intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;package=" + ch.pkg + ";end";
@@ -1206,30 +1539,65 @@
           setTimeout(function () { a.remove(); }, 600);
         } catch (err) {}
       }
+      elBtnRetry.addEventListener("click", function () { if (curStreamCh) { loadStream(curStreamCh, 0); } });
+      elBtnAppFallback.addEventListener("click", function () { if (curStreamCh) { launchChannelApp(curStreamCh); } });
 
       /* First channel pick (from the phone, or the TV remote as a fallback)
          ends the waiting screen: the wallpaper + code view goes away and
-         the TV opens the channel's app, which starts playing the video.
-         Later picks switch the same way. */
+         the channel starts playing right here in Mom TV. Later picks
+         switch the video the same way — the app is never left. */
       function startPlayback(idx) {
         var first = !hasStarted;
         hasStarted = true;
-        if (first) {
-          // Leave the code screen for the clean now-playing screen: the TV
-          // shows only what was pressed on the phone, never the full page.
-          document.body.classList.remove("is-waiting");
-          document.body.classList.add("is-playing");
-        }
+        uiState = "watching";
+        applyScreens();
         showHome();
-        if (mode !== "live") { setMode("live", false); }
-        select(idx, true);
+        playChannel(idx);
         var ch = CHANNELS[idx];
         tvToast(first
-          ? "▶ Đang mở " + ch.app + " để phát " + ch.name + "…"
-          : "📱 Điện thoại chọn " + ch.name + " — đang mở trong " + ch.app + "…");
-        launchChannelApp(ch);
+          ? "▶ Đang phát " + ch.name + " ngay trên Mom TV…"
+          : "📱 Điện thoại chọn " + ch.name + " — đang phát ngay trên TV…");
         notifyRemote();
       }
+      /* Back from the video (or the "home"/"menu" phone buttons) lands on
+         the in-app info screen for the same channel — still inside Mom
+         TV, same pairing, same code. */
+      function showInfoScreen() {
+        uiState = "playing";
+        applyScreens();
+        syncPlayScreen();
+        notifyRemote();
+      }
+      /* Commands that arrive while the video is playing: channel flips
+         switch the stream in place, OK pauses/resumes, Back steps to the
+         in-app info screen — nothing ever leaves Mom TV. */
+      function handleWatchingCmd(cmd) {
+        pokeOverlay();
+        if (needsUnmute) { videoEl.muted = false; needsUnmute = false; }
+        if (cmd === "up" || cmd === "chdown") { playChannel((currentLive - 1 + CHANNELS.length) % CHANNELS.length); }
+        else if (cmd === "down" || cmd === "chup") { playChannel((currentLive + 1) % CHANNELS.length); }
+        else if (cmd === "ok" || cmd === "playpause") { if (playerError) { loadStream(curStreamCh, 0); } else { togglePause(); } }
+        else if (cmd === "back") { showInfoScreen(); }
+        else if (cmd === "movies") { uiState = "playing"; applyScreens(); setMode("films", false); }
+        else if (cmd === "home" || cmd === "menu") { showInfoScreen(); }
+        else if (cmd === "left" || cmd === "right") { /* stay on the video */ }
+        else if (cmd === "power" || cmd === "volup" || cmd === "voldown" || cmd === "mute") {
+          tvToast("Nút này Mẹ dùng remote của TV nhé");
+          return;
+        } else { return; }
+        notifyRemote();
+      }
+      /* If the page comes back to the front (e.g. Mom pressed Back in a
+         fallback app), restore exactly the screen she left — the video
+         or info screen for the same channel, never a fresh code. */
+      function restoreScreen() {
+        applyScreens();
+        if (uiState === "watching" && videoEl && videoEl.paused && !playerError && curStreamCh) {
+          attemptPlay();
+        }
+      }
+      document.addEventListener("visibilitychange", function () { if (!document.hidden) { restoreScreen(); } });
+      window.addEventListener("pageshow", restoreScreen);
 
       function showHome() {
         view = "home";
@@ -1247,7 +1615,7 @@
         tabFilms.setAttribute("aria-selected", mode === "films" ? "true" : "false");
         nav.setAttribute("aria-label", mode === "live" ? "Danh sách kênh trực tiếp" : "Danh sách kho phim");
         elHint.innerHTML = mode === "live"
-          ? "Bấm <b>▲ ▼</b> để xem kênh &nbsp;•&nbsp; Bấm <b>số kênh</b> hoặc nút <b>▶ Phát</b> là TV mở ứng dụng phát ngay &nbsp;•&nbsp; Bấm <b>◀ ▶</b> để qua Kho Phim"
+          ? "Bấm <b>▲ ▼</b> để xem kênh &nbsp;•&nbsp; Bấm <b>số kênh</b> hoặc nút <b>▶ Phát</b> là kênh phát ngay trên TV &nbsp;•&nbsp; Bấm <b>◀ ▶</b> để qua Kho Phim"
           : "Bấm <b>▲ ▼</b> để đổi mục phim &nbsp;•&nbsp; Bấm vào mục để xem hình phim &nbsp;•&nbsp; Bấm <b>◀</b> để về TV Trực Tiếp";
         renderList();
         select(currentIndex(), !!focusFirst);
@@ -1425,6 +1793,16 @@
           }
           return;
         }
+        if (uiState === "watching") {
+          if (e.key === "ArrowDown" || e.key === "ChannelDown") { e.preventDefault(); playChannel((currentLive + 1) % CHANNELS.length); }
+          else if (e.key === "ArrowUp" || e.key === "ChannelUp") { e.preventDefault(); playChannel((currentLive - 1 + CHANNELS.length) % CHANNELS.length); }
+          else if (e.key === "Escape" || e.key === "Backspace" || e.key === "BrowserBack") { e.preventDefault(); showInfoScreen(); }
+          else if (e.key === "Enter" || e.key === " ") { e.preventDefault(); if (playerError) { loadStream(curStreamCh, 0); } else { togglePause(); } }
+          else if (/^[1-9]$/.test(e.key)) { e.preventDefault(); playChannel(parseInt(e.key, 10) - 1); }
+          else if (e.key === "0") { e.preventDefault(); playChannel(9); }
+          return;
+        }
+        if (uiState === "playing" && mode === "live" && view === "home" && e.key === "Enter") { e.preventDefault(); startPlayback(currentLive); return; }
         if (view !== "home") {
           if (e.key === "Escape" || e.key === "Backspace" || e.key === "BrowserBack") { e.preventDefault(); goBack(); }
           return;
@@ -1467,9 +1845,12 @@
       var elPlayClockFl = document.getElementById("play-clock-fl");
       var elPlayClockVn = document.getElementById("play-clock-vn");
       var elRemoteToast = document.getElementById("remote-toast");
+      var elReconnectBar = document.getElementById("reconnect-bar");
+      var elReconnectCode = document.getElementById("reconnect-code");
       var mtvPeer = null;
       var mtvConns = [];
       var pairRetry = 0;
+      var pairCode = "";
       var remoteToastTimer = null;
 
       function tvToast(msg) {
@@ -1489,6 +1870,27 @@
         elWaitDot.className = "pair-dot " + cls;
         elWaitStatus.textContent = text;
       }
+      /* Reconnect bar visibility — Tien's rule: if the iPhone disconnects
+         while something is playing, the TV KEEPS PLAYING untouched; the
+         code is NOT thrown up as a full screen. It appears only as this
+         small overlay bar, there for the moment the phone asks for the
+         code to reconnect, and it disappears as soon as the phone is
+         connected again. Before anything has ever played there is
+         nothing to keep playing, so the bar stays hidden and the
+         waiting screen owns the code as before. */
+      function updateReconnectBar(pulse) {
+        if (pairCode) { elReconnectCode.textContent = pairCode.split("").join(" "); }
+        var show = hasStarted && mtvConns.length === 0;
+        elReconnectBar.classList.toggle("show", show);
+        if (show && pulse) {
+          elReconnectBar.classList.remove("pulse");
+          // Restart the highlight animation so the code catches the eye
+          // exactly when the phone comes asking for it.
+          void elReconnectBar.offsetWidth;
+          elReconnectBar.classList.add("pulse");
+        }
+        if (!show) { elReconnectBar.classList.remove("pulse"); }
+      }
       /* The now-playing screen mirrors whatever was pressed on the phone:
          the picked channel, film category, or episode title — nothing else. */
       function syncPlayScreen() {
@@ -1505,7 +1907,7 @@
           var ch = CHANNELS[currentLive];
           name = ch.name;
           desc = ch.desc;
-          note = "Đang phát trong ứng dụng " + ch.app + " trên TV";
+          note = "Phát ngay trên Mom TV — bấm kênh khác trên điện thoại là TV đổi kênh ngay";
         } else {
           var f = FILMS[currentFilm];
           name = f.name;
@@ -1570,6 +1972,7 @@
             return;
           } else { return; }
         }
+        if (uiState === "watching") { handleWatchingCmd(cmd); return; }
         if (cmd === "up") { if (view === "home") { flip(-1); } else { moveFocus("up"); } }
         else if (cmd === "down") { if (view === "home") { flip(1); } else { moveFocus("down"); } }
         else if (cmd === "left") { if (view === "home") { setMode("live", false); } else { moveFocus("left"); } }
@@ -1579,6 +1982,7 @@
             var a = document.activeElement;
             if (a && a.tagName === "BUTTON") { a.click(); }
           } else if (mode === "films") { openCategory(currentFilm); }
+          else if (uiState === "playing") { startPlayback(currentLive); }
         }
         else if (cmd === "back") { if (view !== "home") { goBack(); } }
         else if (cmd === "home") { setMode("live", false); }
@@ -1607,16 +2011,26 @@
         }
         if (data.cmd) { handleRemoteCmd(String(data.cmd)); }
       }
-      /* Phone gone: the TV goes straight back to the wallpaper + big code
-         screen (same code — the peer keeps it), so Mom can type the code
-         on the phone and reconnect. The code is shown ONLY in this state,
-         never while the phone is connected and playing. */
+      /* Phone gone — Tien's rule: the TV KEEPS PLAYING. A disconnect must
+         never stop the video, never leave the current screen, and never
+         throw the full code screen up over what Mom is watching. The
+         same code (the peer keeps it) simply appears in the small
+         reconnect bar overlay, ready for the moment the phone asks for
+         it to reconnect. Only if nothing has ever played (still on the
+         waiting screen) does the TV stay on that screen as before. */
       function onPhoneGone() {
-        hasStarted = false;
-        document.body.classList.remove("is-playing");
-        document.body.classList.add("is-waiting");
-        setPairStatus("wait", "Điện thoại đã ngắt kết nối — nhập mã này trên điện thoại để nối lại");
-        tvToast("📱 Điện thoại đã ngắt kết nối — TV đang hiện mã để nối lại");
+        if (!hasStarted) {
+          uiState = "waiting";
+          applyScreens();
+          setPairStatus("wait", "Điện thoại đã ngắt kết nối — nhập mã này trên điện thoại để nối lại");
+          return;
+        }
+        // Deliberately NO applyScreens() / stopVideo() here: whatever is
+        // on the TV — the live video or the now-playing card — stays
+        // exactly as it is, sound and picture uninterrupted.
+        setPairStatus("wait", "Điện thoại đã ngắt kết nối — TV vẫn đang phát, mã ở góc màn hình để nối lại");
+        updateReconnectBar(false);
+        tvToast("📱 Điện thoại đã ngắt kết nối — TV vẫn đang phát bình thường");
       }
       function dropConn(conn) {
         var had = mtvConns.length;
@@ -1626,6 +2040,10 @@
       function setupConn(conn) {
         conn.on("open", function () {
           mtvConns.push(conn);
+          // Phone is back: the reconnect code bar goes away and whatever
+          // is playing keeps playing — reconnecting changes nothing on
+          // the TV picture.
+          updateReconnectBar(false);
           setPairStatus("on", "Đã kết nối điện thoại — Mẹ bấm nút trên điện thoại là TV nghe lời");
           if (!hasStarted) {
             // Connected, but the TV keeps showing wallpaper + code until
@@ -1645,8 +2063,10 @@
       }
       function startPairing() {
         var code = String(Math.floor(100000 + Math.random() * 900000));
+        pairCode = code;
         elPairCode.textContent = code.split("").join(" ");
         elWaitCode.textContent = code.split("").join(" ");
+        elReconnectCode.textContent = code.split("").join(" ");
         if (typeof Peer === "undefined") {
           setPairStatus("err", "Chưa tải được phần ghép nối — kiểm tra Wi-Fi rồi mở lại trang này");
           return;
@@ -1680,7 +2100,14 @@
           }
         });
         mtvPeer.on("open", function () { setPairStatus("wait", "Chờ điện thoại nhập mã này"); });
-        mtvPeer.on("connection", setupConn);
+        mtvPeer.on("connection", function (conn) {
+          // The phone is reaching out for this TV — i.e. it is asking for
+          // the code / reconnecting. If it had dropped earlier while
+          // something was playing, make sure the code bar is up and
+          // highlighted at exactly this moment (playback untouched).
+          if (hasStarted && !mtvConns.length) { updateReconnectBar(true); }
+          setupConn(conn);
+        });
         mtvPeer.on("disconnected", function () { try { mtvPeer.reconnect(); } catch (err) {} });
         mtvPeer.on("error", function (err) {
           if (err && err.type === "unavailable-id" && pairRetry < 3) { pairRetry++; startPairing(); return; }
@@ -1716,6 +2143,8 @@
         if (elWaitClockVn) { elWaitClockVn.textContent = vn.time + " • " + vn.day; }
         if (elPlayClockFl) { elPlayClockFl.textContent = fl.time + " • " + fl.day; }
         if (elPlayClockVn) { elPlayClockVn.textContent = vn.time + " • " + vn.day; }
+        if (elPlayerClockFl) { elPlayerClockFl.textContent = fl.time + " • " + fl.day; }
+        if (elPlayerClockVn) { elPlayerClockVn.textContent = vn.time + " • " + vn.day; }
       }
       tick();
       setInterval(tick, 20000);
