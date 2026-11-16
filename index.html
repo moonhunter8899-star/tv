@@ -1772,6 +1772,46 @@
         else if (view === "movies") { showHome(); }
       }
 
+      /* ---------- Back button: stays inside Mom TV, ALWAYS ----------
+         Tien's rule: the remote's Back button may only go back WITHIN
+         this page (video → channel screen → previous screen). It must
+         NEVER drop Mom out to the Fire TV home screen. Two layers make
+         that true no matter how the TV delivers the press:
+         1) Key events: every Back key a TV browser can send is caught
+            below and routed to backWithinApp().
+         2) History: Silk treats remote Back as browser-back, which at
+            the first history entry exits to the TV launcher. So the
+            page keeps a sentinel entry in its history at all times —
+            a Back press pops the sentinel (firing popstate), the page
+            re-arms it instantly and steps back in-app instead. The
+            browser therefore never runs out of history and never
+            leaves Mom TV. */
+      var lastBackAt = 0;
+      function isBackKey(e) {
+        return e.key === "Escape" || e.key === "Backspace" || e.key === "BrowserBack" ||
+          e.key === "GoBack" || e.keyCode === 461 || e.keyCode === 10009;
+      }
+      function backWithinApp() {
+        if (uiState === "watching") { showInfoScreen(); return; }
+        if (view !== "home") { goBack(); notifyRemote(); return; }
+        if (uiState === "playing" && mode === "live") { startPlayback(currentLive); return; }
+        // Home screen / waiting screen / film info: stay right here.
+        // Back at the top level of Mom TV does nothing — it never exits.
+      }
+      function armBackTrap() {
+        try { history.pushState({ momtv: true }, ""); } catch (err) {}
+      }
+      armBackTrap();
+      window.addEventListener("popstate", function () {
+        armBackTrap();
+        // One physical press can arrive as BOTH a key event and a
+        // history pop; the key handler already stepped back, so don't
+        // step twice for the same press.
+        if (Date.now() - lastBackAt < 500) { return; }
+        lastBackAt = Date.now();
+        backWithinApp();
+      });
+
       tabLive.addEventListener("click", function () { setMode("live", true); });
       tabFilms.addEventListener("click", function () { setMode("films", true); });
       elOpenBtn.addEventListener("click", function () { if (mode === "films") { openCategory(currentFilm); } });
@@ -1786,11 +1826,24 @@
         if (!hasStarted) {
           // Waiting screen: the phone is the way in, but the TV remote can
           // also start playback so Mom is never stuck on the code screen.
+          // Back here does nothing — the code screen is as far back as
+          // Mom TV goes; it never exits to the TV home screen.
+          if (isBackKey(e)) { e.preventDefault(); return; }
           if (/^[1-9]$/.test(e.key)) { e.preventDefault(); startPlayback(parseInt(e.key, 10) - 1); }
           else if (e.key === "0") { e.preventDefault(); startPlayback(9); }
           else if (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Enter" || e.key === "ChannelDown" || e.key === "ChannelUp") {
             e.preventDefault(); startPlayback(currentLive);
           }
+          return;
+        }
+        if (isBackKey(e)) {
+          // The remote's Back button only ever steps back INSIDE Mom TV
+          // (video → channel screen, film detail → film list → home) —
+          // preventDefault plus the history trap above mean it can
+          // never leave the page for the TV home screen.
+          e.preventDefault();
+          lastBackAt = Date.now();
+          backWithinApp();
           return;
         }
         if (uiState === "watching") {
@@ -1984,7 +2037,7 @@
           } else if (mode === "films") { openCategory(currentFilm); }
           else if (uiState === "playing") { startPlayback(currentLive); }
         }
-        else if (cmd === "back") { if (view !== "home") { goBack(); } }
+        else if (cmd === "back") { backWithinApp(); }
         else if (cmd === "home") { setMode("live", false); }
         else if (cmd === "menu") { showHome(); }
         else if (cmd === "movies") { setMode("films", false); }
