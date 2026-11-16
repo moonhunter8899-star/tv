@@ -1036,19 +1036,38 @@
         color: #fff;
         border: 2px solid rgba(255, 255, 255, 0.45);
       }
+      /* Dual clocks stay ON the picture the whole time a channel plays —
+         big, high-contrast pills on a solid dark backing, centered at
+         the bottom of the screen like in Tien's photo, above the video
+         and above the loading overlay, and they never fade out. */
       .player-clocks {
         position: absolute;
-        right: 18px;
-        bottom: 14px;
-        z-index: 2;
+        left: 50%;
+        transform: translateX(-50%);
+        bottom: 16px;
+        z-index: 5;
         display: flex;
-        gap: 8px;
-        opacity: 0.85;
+        gap: 10px;
+        flex-wrap: wrap;
+        justify-content: center;
+        max-width: 96vw;
+        opacity: 1;
+        pointer-events: none;
       }
+      .player-clocks .wait-clock {
+        background: rgba(0, 0, 0, 0.8);
+        border: 2px solid rgba(255, 255, 255, 0.6);
+        color: #fff;
+        font-size: clamp(1.3rem, 3.4vw, 1.8rem);
+        font-weight: 900;
+        padding: 10px 22px;
+        white-space: nowrap;
+      }
+      .player-clocks .wait-clock .wc-place { color: var(--gold); }
       .player-unmute {
         position: absolute;
         left: 50%;
-        bottom: 64px;
+        bottom: 104px;
         transform: translateX(-50%);
         z-index: 4;
         display: none;
@@ -1079,7 +1098,7 @@
     <section class="wait-screen" id="wait-screen" aria-label="Màn hình chờ — nhập mã trên điện thoại để bắt đầu xem">
       <div class="wait-card">
         <p class="wait-hello">Chào Mẹ</p>
-        <p class="wait-sub">TV đang chờ điện thoại chọn kênh cho Mẹ</p>
+        <p class="wait-sub">Mẹ bấm OK trên remote TV là vào xem ngay — không cần mã</p>
         <div class="wait-clocks" aria-label="Giờ ở Florida và Nha Trang">
           <span class="wait-clock"><span class="wc-place">Florida</span><span id="wait-clock-fl">--:--</span></span>
           <span class="wait-clock"><span class="wc-place">Nha Trang</span><span id="wait-clock-vn">--:--</span></span>
@@ -1087,7 +1106,8 @@
         <p class="wait-label">Nhập mã này trên điện thoại:</p>
         <div class="wait-code" id="wait-code" aria-label="Mã ghép nối gồm 6 số">• • • • • •</div>
         <div class="wait-status"><span class="pair-dot wait" id="wait-dot"></span><span id="wait-status-text">Đang tạo mã…</span></div>
-        <p class="wait-help">Trên điện thoại, Mẹ mở <b>Mom TV Remote</b>, nhập mã 6 số này, rồi <b>bấm vào kênh</b> muốn xem — kênh sẽ <b>phát ngay trên TV này</b>, không mở ứng dụng khác. Muốn đổi kênh, cứ bấm kênh khác trên điện thoại.</p>
+        <button type="button" class="open-btn show" id="btn-tv-remote">📺 Dùng remote TV — xem ngay, không cần mã</button>
+        <p class="wait-help">Nếu Mẹ dùng <b>remote của TV</b>: cứ bấm nút <b>OK</b> trên remote là vào trang chính xem ngay — <b>không cần mã, không cần điện thoại</b>. Trang chính có cả <b>TV Trực Tiếp</b> và <b>Kho Phim</b>. Nếu muốn dùng điện thoại: mở <b>Mom TV Remote</b>, nhập mã 6 số ở trên, rồi <b>bấm vào kênh</b> muốn xem.</p>
       </div>
     </section>
 
@@ -1178,7 +1198,7 @@
           <div class="pair-status"><span class="pair-dot wait" id="pair-dot"></span><span id="pair-status-text">Đang tạo mã…</span></div>
         </div>
         <div class="pair-code" id="pair-code" aria-label="Mã ghép nối gồm 6 số">• • • • • •</div>
-        <p class="pair-help">Mẹ mở remote trên điện thoại, nhập đúng mã 6 số này vào — sau đó cứ bấm nút trên điện thoại là TV nghe lời, khỏi cần remote của TV.</p>
+        <p class="pair-help">Mã này chỉ cần khi Mẹ điều khiển bằng điện thoại. Nếu Mẹ dùng remote của TV thì <b>không cần mã</b> — cứ bấm chọn kênh là xem ngay.</p>
       </section>
 
       <section class="continue-view" id="continue-view" aria-label="Tiếp tục xem">
@@ -1261,8 +1281,14 @@
       // VTV1's feed is the one carried by Vietnam's national digital-TV
       // platform (truyenhinhso.vn) and Vietnam Today's is its official
       // Amagi FAST feed — both verified end-to-end (playlist + segments,
-      // CORS open) from the US. The remaining channels use the public
-      // stream listings for the same free-to-air broadcasts.
+      // CORS open) from the US. THVL1–4 use the public iptv-org listing
+      // for the same free-to-air broadcasts (dethich.pw, which redirects
+      // to the VieON live CDN); that feed is intermittent, so the player
+      // retries a THVL channel several times with fresh requests before
+      // offering the THVLi app button (see nextSource). The FPT Play and
+      // MobiFone THVL feeds were checked and are geo-blocked / 403 from
+      // the US, and THVLi's own API requires a signed app key, so
+      // neither can serve the in-page player from Florida.
       var CHANNELS = [
         { group: "VTV", name: "VTV1", desc: "Tin tức & thời sự", app: "VTV Go", pkg: "vn.vtv.vtvgotv", streams: ["https://luuchieu.truyenhinhso.vn/media/live/C90B082632CD4A75F4B3EDB3/index.m3u8", "https://dethich.pw/vtv1/index.m3u8"] },
         { group: "VTV", name: "VTV2", desc: "Khoa học & đời sống", app: "VTV Go", pkg: "vn.vtv.vtvgotv", streams: ["https://dethich.pw/vtv2/index.m3u8"] },
@@ -1455,6 +1481,8 @@
       var loadTimer = null;
       var overlayTimer = null;
       var srcIdx = 0;
+      var srcRetries = 0;
+      var mediaRetries = 0;
       var curStreamCh = null;
       var needsUnmute = false;
       var playerError = false;
@@ -1508,9 +1536,29 @@
         elPlayerCenter.classList.add("show");
         elBtnRetry.focus({ preventScroll: true });
       }
+      /* A failed load is retried on the SAME source several times with a
+         fresh request before the player gives up or moves on: the public
+         THVL feeds (via dethich.pw, which redirects to the VieON CDN)
+         fail intermittently — a dropped redirect or a stalled manifest
+         is common, and a fresh attempt a second later usually plays.
+         Only after every retry is the error screen shown, where the
+         channel's official app (THVLi for THVL1–4) is one OK press away. */
+      var MAX_SRC_RETRIES = 4;
       function nextSource() {
         if (!curStreamCh || uiState !== "watching") { return; }
-        if (srcIdx + 1 < curStreamCh.streams.length) { loadStream(curStreamCh, srcIdx + 1); }
+        if (srcRetries < MAX_SRC_RETRIES) {
+          srcRetries++;
+          elPlayerState.textContent = "Đang thử lại " + curStreamCh.name + "… (lần " + (srcRetries + 1) + ")";
+          elPlayerSpinner.style.display = "";
+          elPlayerActions.classList.remove("show");
+          elPlayerCenter.classList.add("show");
+          clearTimeout(loadTimer);
+          loadTimer = setTimeout(function () {
+            if (curStreamCh && uiState === "watching" && !playerError) { loadStream(curStreamCh, srcIdx, true); }
+          }, 1300);
+          return;
+        }
+        if (srcIdx + 1 < curStreamCh.streams.length) { srcRetries = 0; loadStream(curStreamCh, srcIdx + 1); }
         else { showPlayerError(curStreamCh); }
       }
       function showUnmuteHint() { if (elPlayerUnmute) { elPlayerUnmute.classList.add("show"); } }
@@ -1560,9 +1608,11 @@
           });
         }
       }
-      function loadStream(ch, i) {
+      function loadStream(ch, i, keepRetry) {
         curStreamCh = ch;
         srcIdx = i;
+        if (!keepRetry) { srcRetries = 0; }
+        mediaRetries = 0;
         playerError = false;
         // A fresh stream always starts unmuted at full volume — sound
         // must never depend on how the previous channel visit ended.
@@ -1577,11 +1627,27 @@
         clearTimeout(loadTimer);
         loadTimer = setTimeout(nextSource, 14000);
         if (window.Hls && Hls.isSupported()) {
-          hlsInst = new Hls({ liveSyncDurationCount: 3, maxLiveSyncPlaybackRate: 1.5, backBufferLength: 30 });
+          hlsInst = new Hls({
+            liveSyncDurationCount: 3,
+            maxLiveSyncPlaybackRate: 1.5,
+            backBufferLength: 30,
+            manifestLoadingMaxRetry: 6,
+            manifestLoadingRetryDelay: 800,
+            levelLoadingMaxRetry: 6,
+            fragLoadingMaxRetry: 8,
+            fragLoadingRetryDelay: 800
+          });
           hlsInst.loadSource(ch.streams[i]);
           hlsInst.attachMedia(videoEl);
           hlsInst.on(Hls.Events.ERROR, function (ev, data) {
-            if (data && data.fatal) { clearTimeout(loadTimer); nextSource(); }
+            if (!data || !data.fatal) { return; }
+            if (data.type === Hls.ErrorTypes.MEDIA_ERROR && mediaRetries < 1 && hlsInst) {
+              mediaRetries++;
+              try { hlsInst.recoverMediaError(); } catch (err) {}
+              return;
+            }
+            clearTimeout(loadTimer);
+            nextSource();
           });
         } else if (videoEl.canPlayType("application/vnd.apple.mpegurl")) {
           videoEl.src = ch.streams[i];
@@ -1700,6 +1766,17 @@
           ? "🎬 Trang chính — Kho Phim: Mẹ chọn mục phim nhé"
           : "📺 Trang chính — TV Trực Tiếp: Mẹ chọn kênh nhé");
         notifyRemote();
+      }
+      /* TV remote needs NO code — Tien's rule. The pairing code is only
+         for the phone remote. Any OK / arrow press on the TV remote at
+         the waiting screen (or a tap on its on-screen button) skips the
+         code entirely and lands on the MAIN page, where both sections
+         are right there: 1 • TV Trực Tiếp (the channel grid) and
+         2 • Kho Phim (the movie list). */
+      function enterWithTvRemote() {
+        hasStarted = true;
+        showMainPage("live");
+        tvToast("📺 Mẹ dùng remote TV — không cần mã. Trang chính có TV Trực Tiếp và Kho Phim nhé");
       }
       /* Commands that arrive while the video is playing: channel flips
          switch the stream in place, OK pauses/resumes, Back steps to the
@@ -1975,15 +2052,17 @@
 
       document.addEventListener("keydown", function (e) {
         if (!hasStarted) {
-          // Waiting screen: the phone is the way in, but the TV remote can
-          // also start playback so Mom is never stuck on the code screen.
-          // Back here does nothing — the code screen is as far back as
-          // Mom TV goes; it never exits to the TV home screen.
+          // Waiting screen: the code is ONLY for the phone remote. With
+          // the TV remote, Mom never needs it — a number key plays that
+          // channel at once, and OK / any arrow key skips the code and
+          // opens the MAIN page (TV Trực Tiếp + Kho Phim). Back here
+          // does nothing — the code screen is as far back as Mom TV
+          // goes; it never exits to the TV home screen.
           if (isBackKey(e)) { e.preventDefault(); return; }
           if (/^[1-9]$/.test(e.key)) { e.preventDefault(); startPlayback(parseInt(e.key, 10) - 1); }
           else if (e.key === "0") { e.preventDefault(); startPlayback(9); }
-          else if (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Enter" || e.key === "ChannelDown" || e.key === "ChannelUp") {
-            e.preventDefault(); startPlayback(currentLive);
+          else if (e.key === "Enter" || e.key === " " || e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key === "ChannelDown" || e.key === "ChannelUp") {
+            e.preventDefault(); enterWithTvRemote();
           }
           return;
         }
@@ -2361,6 +2440,8 @@
       }
       startPairing();
 
+      var elBtnTvRemote = document.getElementById("btn-tv-remote");
+      if (elBtnTvRemote) { elBtnTvRemote.addEventListener("click", function () { enterWithTvRemote(); }); }
       document.getElementById("btn-choice-live").addEventListener("click", function () { showMainPage("live"); });
       document.getElementById("btn-choice-films").addEventListener("click", function () { showMainPage("films"); });
 
@@ -2391,7 +2472,7 @@
         if (elPlayerClockVn) { elPlayerClockVn.textContent = vn.time + " • " + vn.day; }
       }
       tick();
-      setInterval(tick, 20000);
+      setInterval(tick, 10000);
     </script>
   </body>
 </html>
