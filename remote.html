@@ -412,6 +412,7 @@
       </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <script>
       (function () {
         var CHANNELS = [
@@ -434,8 +435,31 @@
           power: "Bật / Tắt TV"
         };
 
+        /* Real link to the TV: the Mom TV page registers PeerJS peer
+           "momtv-<6-digit code>" and accepts {type:"cmd", cmd:"…"} and
+           {type:"chan", index:0-9} (this page's logo order). It answers
+           with {type:"state", name, mode, view, index} where index is the
+           TV's own channel order — TV_TO_REMOTE converts it back. The
+           openrelay TURN servers let the link cross home NAT / hotel-style
+           Wi-Fi where a direct peer path is blocked. */
+        var TV_TO_REMOTE = [1, 2, 3, 4, 5, 0, 6, 7, 8, 9];
+        var ICE_CONFIG = {
+          iceServers: [
+            { urls: "stun:stun.l.google.com:19302" },
+            { urls: "stun:stun1.l.google.com:19302" },
+            { urls: "stun:openrelay.metered.ca:80" },
+            { urls: "turn:openrelay.metered.ca:80", username: "openrelayproject", credential: "openrelayproject" },
+            { urls: "turn:openrelay.metered.ca:443", username: "openrelayproject", credential: "openrelayproject" },
+            { urls: "turn:openrelay.metered.ca:443?transport=tcp", username: "openrelayproject", credential: "openrelayproject" }
+          ],
+          iceTransportPolicy: "all",
+          sdpSemantics: "unified-plan"
+        };
+        var peer = null;
+        var conn = null;
         var paired = false;
-        var powerOn = true;
+        var connecting = false;
+        var pairTimer = null;
         var chanIdx = -1;
         var volume = 40;
         var muted = false;
@@ -483,19 +507,43 @@
           renderChan();
           if (!silent) toast("📺 " + CHANNELS[chanIdx].name);
         }
+        function clearChanHighlight() {
+          var btns = document.querySelectorAll(".qbtn");
+          for (var i = 0; i < btns.length; i++) { btns[i].classList.remove("current"); }
+        }
+        /* The TV reports what it is actually showing after every tap;
+           mirror it here so the phone never claims a channel the TV
+           is not on. */
+        function applyTvState(msg) {
+          if (msg.view === "home" && msg.mode === "live" && typeof msg.index === "number") {
+            var r = TV_TO_REMOTE[msg.index];
+            if (typeof r === "number") { chanIdx = r; renderChan(); return; }
+          }
+          if (msg.name) {
+            nowChan.textContent = msg.name;
+            nowMeta.textContent = msg.view === "detail" ? "Đang mở trên TV" : (msg.mode === "films" ? "Kho Phim — đang mở trên TV" : "Đang mở trên TV");
+            nowLogoBox.hidden = true;
+            chText.textContent = "—";
+            clearChanHighlight();
+          }
+        }
         function needPair() { toast("Hãy ghép nối với TV trước"); $("pairPanel").scrollIntoView({ behavior: "smooth", block: "center" }); }
 
+        function isConnected() { return !!(conn && conn.open); }
+        function sendToTv(msg) {
+          if (!isConnected()) { return false; }
+          try { conn.send(msg); return true; } catch (e) { return false; }
+        }
         function send(cmd) {
           buzz();
-          if (!paired) { needPair(); return; }
+          if (!isConnected()) { needPair(); return; }
           if (cmd === "power") {
-            powerOn = !powerOn;
-            toast(powerOn ? "TV: Bật" : "TV: Tắt");
-            nowMeta.textContent = powerOn ? nowMeta.textContent : "TV đang tắt";
-            if (powerOn) renderChan();
+            /* The TV itself answers power with a note to use its own
+               remote — forward the tap and say the same here. */
+            sendToTv({ type: "cmd", cmd: "power" });
+            toast("Nút nguồn: Mẹ dùng remote của TV nhé");
             return;
           }
-          if (!powerOn && cmd !== "power") { toast("TV đang tắt — bấm nút nguồn trước"); return; }
           switch (cmd) {
             case "volup": muted = false; volume = Math.min(100, volume + 5); renderVol(); toast("🔊 Âm lượng " + volume); break;
             case "voldown": muted = false; volume = Math.max(0, volume - 5); renderVol(); toast("🔉 Âm lượng " + volume); break;
@@ -506,6 +554,7 @@
             case "home": toast("🏠 Trang chính Mom TV"); if (chanIdx >= 0) renderChan(); break;
             default: toast(LABELS[cmd] || cmd);
           }
+          sendToTv({ type: "cmd", cmd: cmd });
         }
 
         var cmdBtns = document.querySelectorAll("[data-cmd]");
@@ -517,9 +566,10 @@
         for (var j = 0; j < qBtns.length; j++) {
           qBtns[j].addEventListener("click", function () {
             buzz();
-            if (!paired) { needPair(); return; }
-            if (!powerOn) { toast("TV đang tắt — bấm nút nguồn trước"); return; }
-            setChannel(Number(this.getAttribute("data-chan")));
+            if (!isConnected()) { needPair(); return; }
+            var n = Number(this.getAttribute("data-chan"));
+            if (sendToTv({ type: "chan", index: n })) { setChannel(n); }
+            else { toast("Mất kết nối với TV — ghép nối lại nhé"); }
           });
         }
 
@@ -554,22 +604,99 @@
             refreshPairBtn();
           });
         });
-        btnPair.addEventListener("click", function () {
-          if (!/^\d{6}$/.test(codeValue())) { pairErr.textContent = "Mã gồm đúng 6 số — xem trên màn hình TV."; return; }
-          paired = true; powerOn = true;
-          $("statusDot").classList.add("on");
-          $("statusText").textContent = "Đã ghép nối";
-          $("statusTv").textContent = "TV của Mẹ";
-          $("pairForm").hidden = true;
-          $("pairDone").hidden = false;
-          $("btnUnpair").hidden = false;
-          setChannel(0, true);
-          toast("✅ Đã ghép nối — bấm logo kênh để xem");
-          buzz();
-          setTimeout(function () { $("quickGrid").scrollIntoView({ behavior: "smooth", block: "center" }); }, 350);
-        });
+        function teardownPeer() {
+          try { if (conn) { conn.close(); } } catch (e) {}
+          try { if (peer) { peer.destroy(); } } catch (e) {}
+          conn = null; peer = null;
+        }
+        function failPair(msg) {
+          connecting = false; paired = false;
+          clearTimeout(pairTimer);
+          teardownPeer();
+          btnPair.disabled = codeValue().length !== 6;
+          btnPair.textContent = "Ghép nối · Pair";
+          pairErr.textContent = msg;
+          $("statusDot").classList.remove("on");
+          $("statusText").textContent = "Chưa ghép nối";
+          $("statusTv").textContent = "";
+        }
+        function handleDrop() {
+          if (!paired && !connecting) { return; }
+          var wasPaired = paired;
+          paired = false; connecting = false;
+          clearTimeout(pairTimer);
+          teardownPeer();
+          chanIdx = -1;
+          $("statusDot").classList.remove("on");
+          $("statusText").textContent = "Mất kết nối";
+          $("statusTv").textContent = "";
+          $("pairForm").hidden = false;
+          $("pairDone").hidden = true;
+          $("btnUnpair").hidden = true;
+          btnPair.disabled = codeValue().length !== 6;
+          btnPair.textContent = "Ghép nối lại · Pair again";
+          renderChan();
+          if (wasPaired) { toast("Mất kết nối với TV — ghép nối lại nhé"); }
+        }
+        function startPair() {
+          var code = codeValue();
+          if (!/^\d{6}$/.test(code)) { pairErr.textContent = "Mã gồm đúng 6 số — xem trên màn hình TV."; return; }
+          if (typeof Peer === "undefined") { pairErr.textContent = "Chưa tải được phần kết nối — kiểm tra mạng của điện thoại rồi thử lại."; return; }
+          teardownPeer();
+          connecting = true;
+          pairErr.textContent = "";
+          btnPair.disabled = true;
+          btnPair.textContent = "Đang kết nối…";
+          $("statusText").textContent = "Đang kết nối với TV…";
+          pairTimer = setTimeout(function () {
+            if (!isConnected()) { failPair("Chưa nối được tới TV — kiểm tra lại mã trên TV và Wi-Fi ở nhà, rồi thử lại."); }
+          }, 20000);
+          try {
+            peer = new Peer({ config: ICE_CONFIG });
+          } catch (e) { failPair("Kết nối bị lỗi — thử lại nhé."); return; }
+          peer.on("open", function () {
+            try {
+              conn = peer.connect("momtv-" + code, { reliable: true });
+            } catch (e) { failPair("Kết nối bị lỗi — thử lại nhé."); return; }
+            conn.on("open", function () {
+              connecting = false; paired = true;
+              clearTimeout(pairTimer);
+              btnPair.textContent = "Ghép nối · Pair";
+              $("statusDot").classList.add("on");
+              $("statusText").textContent = "Đã ghép nối";
+              $("statusTv").textContent = "TV của Mẹ";
+              $("pairForm").hidden = true;
+              $("pairDone").hidden = false;
+              $("btnUnpair").hidden = false;
+              toast("✅ Đã ghép nối — bấm logo kênh để xem");
+              buzz();
+              setTimeout(function () { $("quickGrid").scrollIntoView({ behavior: "smooth", block: "center" }); }, 350);
+            });
+            conn.on("data", function (data) {
+              if (data && data.type === "state") { applyTvState(data); }
+            });
+            conn.on("close", function () { handleDrop(); });
+            conn.on("error", function () { handleDrop(); });
+          });
+          peer.on("error", function (err) {
+            if (connecting) {
+              if (err && err.type === "peer-unavailable") {
+                failPair("Không thấy TV nào với mã này — xem lại mã 6 số trên màn hình TV.");
+              } else {
+                failPair("Chưa nối được tới TV — kiểm tra Wi-Fi rồi thử lại.");
+              }
+            } else if (paired && !isConnected()) { handleDrop(); }
+          });
+          peer.on("disconnected", function () {
+            if (peer && !peer.destroyed) { try { peer.reconnect(); } catch (e) {} }
+          });
+        }
+        btnPair.addEventListener("click", startPair);
         $("btnUnpair").addEventListener("click", function () {
-          paired = false; chanIdx = -1;
+          paired = false; connecting = false; chanIdx = -1;
+          clearTimeout(pairTimer);
+          teardownPeer();
+          btnPair.textContent = "Ghép nối · Pair";
           $("statusDot").classList.remove("on");
           $("statusText").textContent = "Chưa ghép nối";
           $("statusTv").textContent = "";

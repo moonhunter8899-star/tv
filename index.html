@@ -1468,7 +1468,32 @@
         }
         setPairStatus("wait", "Đang tạo mã…");
         try { if (mtvPeer) { mtvPeer.destroy(); } } catch (err) {}
-        mtvPeer = new Peer("momtv-" + code);
+        mtvPeer = new Peer("momtv-" + code, {
+          config: {
+            iceServers: [
+              { urls: "stun:stun.l.google.com:19302" },
+              { urls: "stun:stun1.l.google.com:19302" },
+              { urls: "stun:openrelay.metered.ca:80" },
+              {
+                urls: "turn:openrelay.metered.ca:80",
+                username: "openrelayproject",
+                credential: "openrelayproject"
+              },
+              {
+                urls: "turn:openrelay.metered.ca:443",
+                username: "openrelayproject",
+                credential: "openrelayproject"
+              },
+              {
+                urls: "turn:openrelay.metered.ca:443?transport=tcp",
+                username: "openrelayproject",
+                credential: "openrelayproject"
+              }
+            ],
+            iceTransportPolicy: "all",
+            sdpSemantics: "unified-plan"
+          }
+        });
         mtvPeer.on("open", function () { setPairStatus("wait", "Chờ điện thoại nhập mã này"); });
         mtvPeer.on("connection", setupConn);
         mtvPeer.on("disconnected", function () { try { mtvPeer.reconnect(); } catch (err) {} });
