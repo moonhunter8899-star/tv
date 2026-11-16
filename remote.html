@@ -186,6 +186,17 @@
       .movies-btn svg { width: 22px; height: 22px; }
       .movies-btn:active { background: var(--btn-press); transform: scale(.98); }
 
+      .back-btn {
+        display: flex; align-items: center; justify-content: center; gap: 10px;
+        width: 100%;
+        background: var(--gold); color: var(--gold-ink); border: none;
+        border-radius: 14px; min-height: 58px; padding: 12px;
+        font-weight: 900; font-size: 1.08rem; margin-bottom: 14px;
+        box-shadow: 0 6px 16px rgba(244, 185, 66, .28);
+      }
+      .back-btn svg { width: 24px; height: 24px; flex: none; }
+      .back-btn:active { transform: scale(.98); }
+
       .toast {
         min-height: 24px; text-align: center;
         font-size: .9rem; font-weight: 800; color: var(--gold);
@@ -233,6 +244,11 @@
           <span>Đã ghép nối</span>
           <span class="tv">TV của Mẹ</span>
         </div>
+
+        <button class="back-btn" data-cmd="back" aria-label="Quay lại trang chính">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
+          Quay lại · Back — Về trang chính
+        </button>
 
         <div class="now" aria-live="polite">
           <div class="label">Đang xem · Now playing</div>
@@ -397,6 +413,13 @@
           switch (cmd) {
             case "volup": muted = false; volume = Math.min(100, volume + 5); renderVol(); toast("🔊 Âm lượng " + volume); break;
             case "voldown": muted = false; volume = Math.max(0, volume - 5); renderVol(); toast("🔉 Âm lượng " + volume); break;
+            case "back":
+              toast("↩ Về trang chính · Main page");
+              nowChan.textContent = "Trang chính · Main page";
+              nowMeta.textContent = "Chọn TV hoặc Kho Phim trên TV";
+              nowLogoBox.hidden = true;
+              clearChanHighlight();
+              break;
             case "movies": toast("🎬 Mở Kho Phim"); nowMeta.textContent = "Kho Phim — chọn phim, chọn tập"; break;
             case "chup": setChannel(chanIdx < 0 ? 0 : chanIdx + 1); sendToTv({ type: "chan", index: chanIdx }); return;
             case "chdown": setChannel(chanIdx < 0 ? 0 : chanIdx - 1); sendToTv({ type: "chan", index: chanIdx }); return;

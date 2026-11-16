@@ -926,6 +926,34 @@
         font-weight: 800;
         line-height: 1.4;
       }
+      .play-choices {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        width: 100%;
+      }
+      @media (max-width: 560px) { .play-choices { grid-template-columns: 1fr; } }
+      .play-choice {
+        appearance: none;
+        border: 2px solid var(--line);
+        background: var(--btn-bg);
+        color: var(--ink);
+        border-radius: 16px;
+        min-height: 92px;
+        padding: 12px 14px;
+        font: inherit;
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 3px;
+        text-align: center;
+      }
+      .play-choice .pc-name { font-size: clamp(1.35rem, 3.6vw, 1.7rem); font-weight: 900; line-height: 1.15; }
+      .play-choice .pc-sub { font-size: 1rem; font-weight: 700; color: var(--ink-dim); }
+      .play-choice.sel { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold) inset; }
+      .play-choice:focus-visible { outline: 4px solid var(--focus-ring); outline-offset: 2px; }
       .play-status {
         display: flex;
         align-items: center;
@@ -1017,6 +1045,24 @@
         gap: 8px;
         opacity: 0.85;
       }
+      .player-unmute {
+        position: absolute;
+        left: 50%;
+        bottom: 64px;
+        transform: translateX(-50%);
+        z-index: 4;
+        display: none;
+        background: rgba(6, 38, 40, 0.92);
+        color: #fff;
+        border: 2px solid var(--gold);
+        border-radius: 14px;
+        padding: 12px 22px;
+        font-size: clamp(1.1rem, 3vw, 1.4rem);
+        font-weight: 800;
+        text-align: center;
+        max-width: min(92vw, 640px);
+      }
+      .player-unmute.show { display: block; }
       @media (prefers-reduced-motion: reduce) {
         .player-spinner { animation: none; }
         .player-top { transition: none; }
@@ -1051,6 +1097,16 @@
         <h2 class="play-name" id="play-name">VTV1</h2>
         <p class="play-desc" id="play-desc">Tin tức &amp; thời sự</p>
         <p class="play-note" id="play-note">Đang phát ngay trên Mom TV</p>
+        <div class="play-choices" role="group" aria-label="Chọn xem TV trực tiếp hoặc kho phim">
+          <button type="button" class="play-choice sel" id="btn-choice-live" aria-pressed="true">
+            <span class="pc-name">📺 1 • TV Trực Tiếp</span>
+            <span class="pc-sub">Bấm để về trang chính chọn kênh</span>
+          </button>
+          <button type="button" class="play-choice" id="btn-choice-films" aria-pressed="false">
+            <span class="pc-name">🎬 2 • Kho Phim</span>
+            <span class="pc-sub">Bấm để về trang chính chọn phim</span>
+          </button>
+        </div>
         <div class="wait-clocks" aria-label="Giờ ở Florida và Nha Trang">
           <span class="wait-clock"><span class="wc-place">Florida</span><span id="play-clock-fl">--:--</span></span>
           <span class="wait-clock"><span class="wc-place">Nha Trang</span><span id="play-clock-vn">--:--</span></span>
@@ -1073,6 +1129,7 @@
           <button type="button" class="open-btn alt" id="btn-app-fallback">▶ Mở trong VTV Go</button>
         </div>
       </div>
+      <div class="player-unmute" id="player-unmute" role="status">🔇 Đang tắt tiếng — bấm nút <b>OK</b> trên remote để bật tiếng</div>
       <div class="player-clocks" aria-label="Giờ ở Florida và Nha Trang">
         <span class="wait-clock"><span class="wc-place">Florida</span><span id="player-clock-fl">--:--</span></span>
         <span class="wait-clock"><span class="wc-place">Nha Trang</span><span id="player-clock-vn">--:--</span></span>
@@ -1389,6 +1446,7 @@
       var elPlayerState = document.getElementById("player-state");
       var elPlayerSpinner = document.getElementById("player-spinner");
       var elPlayerActions = document.getElementById("player-actions");
+      var elPlayerUnmute = document.getElementById("player-unmute");
       var elBtnRetry = document.getElementById("btn-retry");
       var elBtnAppFallback = document.getElementById("btn-app-fallback");
       var elPlayerClockFl = document.getElementById("player-clock-fl");
@@ -1415,8 +1473,13 @@
         destroyHls();
         curStreamCh = null;
         playerError = false;
+        needsUnmute = false;
+        hideUnmuteHint();
         if (videoEl) {
           try { videoEl.pause(); } catch (err) {}
+          // Never let a muted state leak into the next channel visit:
+          // leaving a channel and coming back must start WITH sound.
+          try { videoEl.muted = false; videoEl.volume = 1; } catch (err) {}
           videoEl.removeAttribute("src");
           try { videoEl.load(); } catch (err) {}
         }
@@ -1450,16 +1513,50 @@
         if (srcIdx + 1 < curStreamCh.streams.length) { loadStream(curStreamCh, srcIdx + 1); }
         else { showPlayerError(curStreamCh); }
       }
+      function showUnmuteHint() { if (elPlayerUnmute) { elPlayerUnmute.classList.add("show"); } }
+      function hideUnmuteHint() { if (elPlayerUnmute) { elPlayerUnmute.classList.remove("show"); } }
+      function syncUnmuteHint() {
+        if (videoEl && videoEl.muted && uiState === "watching" && !playerError) { showUnmuteHint(); }
+        else { hideUnmuteHint(); }
+      }
+      function ensureSound() {
+        if (!videoEl) { return; }
+        try { videoEl.muted = false; videoEl.volume = 1; } catch (err) {}
+        needsUnmute = false;
+        hideUnmuteHint();
+      }
       function attemptPlay() {
+        // Every (re)start tries WITH sound first. A <video> element keeps
+        // its muted flag until it is explicitly cleared, so one muted
+        // autoplay fallback early on used to silence every later return
+        // to the same channel — VTV1 played with sound the first time,
+        // then came back silent. Clearing muted + volume here, on every
+        // start, is the fix.
+        ensureSound();
         var p = videoEl.play();
         if (p && p.catch) {
-          p.catch(function () {
-            // Autoplay-with-sound was refused: start muted, and the next
-            // tap on the phone remote turns the sound back on.
-            videoEl.muted = true;
+          p.catch(function (err) {
+            if (err && err.name === "AbortError") {
+              // Not an autoplay refusal: this play() was interrupted by
+              // the stream (re)loading. Retry WITH sound once the media
+              // can play, instead of falling back to muted.
+              var retry = function () {
+                videoEl.removeEventListener("canplay", retry);
+                if (uiState === "watching" && curStreamCh && videoEl.paused && !playerError) { attemptPlay(); }
+              };
+              videoEl.addEventListener("canplay", retry);
+              return;
+            }
+            // Autoplay-with-sound was refused (e.g. the page came back
+            // to the front without a remote press): start muted so the
+            // picture keeps moving, flag it, and show the on-screen
+            // hint — the next OK press on either remote turns the sound
+            // back on without pausing (see ensureSound callers).
+            try { videoEl.muted = true; } catch (e2) {}
             needsUnmute = true;
             var p2 = videoEl.play();
             if (p2 && p2.catch) { p2.catch(function () {}); }
+            syncUnmuteHint();
           });
         }
       }
@@ -1467,6 +1564,11 @@
         curStreamCh = ch;
         srcIdx = i;
         playerError = false;
+        // A fresh stream always starts unmuted at full volume — sound
+        // must never depend on how the previous channel visit ended.
+        try { videoEl.muted = false; videoEl.volume = 1; } catch (err) {}
+        needsUnmute = false;
+        hideUnmuteHint();
         destroyHls();
         try { videoEl.pause(); } catch (err) {}
         videoEl.removeAttribute("src");
@@ -1496,6 +1598,13 @@
           elPlayerCenter.classList.remove("show");
           pokeOverlay();
         }
+        syncUnmuteHint();
+      });
+      videoEl.addEventListener("volumechange", function () {
+        // If anything (browser, system, an earlier muted fallback) has
+        // the video muted while Mom is watching, surface the hint so
+        // one OK press brings the sound back.
+        if (uiState === "watching") { syncUnmuteHint(); }
       });
       videoEl.addEventListener("error", function () {
         if (!hlsInst && curStreamCh && uiState === "watching" && !playerError) {
@@ -1566,6 +1675,30 @@
         uiState = "playing";
         applyScreens();
         syncPlayScreen();
+        setPlayChoice(mode === "films" ? "films" : "live");
+        notifyRemote();
+      }
+      /* ---------- Main page (the full page: tabs + channel grid) ----------
+         Tien's rule: going back lands on the MAIN page, where Mom gets a
+         clear choice — TV Trực Tiếp or Kho Phim — with the channel grid
+         (or film list) right there. The main page is the .stage UI: it
+         shows whenever uiState is "home" (none of the full-screen
+         waiting / info / player screens is active). */
+      var playChoice = "live"; // highlighted choice on the info screen
+      function setPlayChoice(which) {
+        playChoice = which === "films" ? "films" : "live";
+        var bL = document.getElementById("btn-choice-live");
+        var bF = document.getElementById("btn-choice-films");
+        if (bL) { bL.classList.toggle("sel", playChoice === "live"); bL.setAttribute("aria-pressed", playChoice === "live" ? "true" : "false"); }
+        if (bF) { bF.classList.toggle("sel", playChoice === "films"); bF.setAttribute("aria-pressed", playChoice === "films" ? "true" : "false"); }
+      }
+      function showMainPage(nextMode) {
+        uiState = "home";
+        applyScreens();
+        setMode(nextMode === "films" ? "films" : "live", true);
+        tvToast(nextMode === "films"
+          ? "🎬 Trang chính — Kho Phim: Mẹ chọn mục phim nhé"
+          : "📺 Trang chính — TV Trực Tiếp: Mẹ chọn kênh nhé");
         notifyRemote();
       }
       /* Commands that arrive while the video is playing: channel flips
@@ -1573,12 +1706,20 @@
          in-app info screen — nothing ever leaves Mom TV. */
       function handleWatchingCmd(cmd) {
         pokeOverlay();
-        if (needsUnmute) { videoEl.muted = false; needsUnmute = false; }
+        var wasMuted = needsUnmute || (videoEl && videoEl.muted);
+        if (wasMuted) { ensureSound(); }
+        if (wasMuted && (cmd === "ok" || cmd === "playpause") && !playerError) {
+          // This OK press was Mom turning the sound back on — don't
+          // also pause the channel she is trying to listen to.
+          tvToast("🔊 Đã bật tiếng rồi Mẹ nhé");
+          notifyRemote();
+          return;
+        }
         if (cmd === "up" || cmd === "chdown") { playChannel((currentLive - 1 + CHANNELS.length) % CHANNELS.length); }
         else if (cmd === "down" || cmd === "chup") { playChannel((currentLive + 1) % CHANNELS.length); }
         else if (cmd === "ok" || cmd === "playpause") { if (playerError) { loadStream(curStreamCh, 0); } else { togglePause(); } }
-        else if (cmd === "back") { showInfoScreen(); }
-        else if (cmd === "movies") { uiState = "playing"; applyScreens(); setMode("films", false); }
+        else if (cmd === "back") { backWithinApp(); }
+        else if (cmd === "movies") { showMainPage("films"); }
         else if (cmd === "home" || cmd === "menu") { showInfoScreen(); }
         else if (cmd === "left" || cmd === "right") { /* stay on the video */ }
         else if (cmd === "power" || cmd === "volup" || cmd === "voldown" || cmd === "mute") {
@@ -1592,8 +1733,14 @@
          or info screen for the same channel, never a fresh code. */
       function restoreScreen() {
         applyScreens();
-        if (uiState === "watching" && videoEl && videoEl.paused && !playerError && curStreamCh) {
-          attemptPlay();
+        if (uiState === "watching" && videoEl && !playerError && curStreamCh) {
+          // Coming back to Mom TV (from another app, or after the page
+          // was in the background) resumes the same channel WITH sound:
+          // attemptPlay always tries unmuted first, and only if the
+          // browser refuses does it run muted with the OK-to-unmute
+          // hint on screen.
+          if (videoEl.paused) { attemptPlay(); }
+          else { syncUnmuteHint(); }
         }
       }
       document.addEventListener("visibilitychange", function () { if (!document.hidden) { restoreScreen(); } });
@@ -1789,13 +1936,17 @@
       var lastBackAt = 0;
       function isBackKey(e) {
         return e.key === "Escape" || e.key === "Backspace" || e.key === "BrowserBack" ||
-          e.key === "GoBack" || e.keyCode === 461 || e.keyCode === 10009;
+          e.key === "GoBack" || e.key === "Back" || e.keyCode === 461 || e.keyCode === 10009 ||
+          e.keyCode === 4;
       }
       function backWithinApp() {
-        if (uiState === "watching") { showInfoScreen(); return; }
+        // Tien's rule: Back goes back to the MAIN PAGE (tabs + channel
+        // grid, TV / Kho Phim choice) — from the video, and from the
+        // info screen too. It still never leaves Mom TV for the TV
+        // home screen.
+        if (uiState === "watching" || uiState === "playing") { showMainPage(mode); return; }
         if (view !== "home") { goBack(); notifyRemote(); return; }
-        if (uiState === "playing" && mode === "live") { startPlayback(currentLive); return; }
-        // Home screen / waiting screen / film info: stay right here.
+        // Already on the main page / waiting screen: stay right here.
         // Back at the top level of Mom TV does nothing — it never exits.
       }
       function armBackTrap() {
@@ -1847,6 +1998,14 @@
           return;
         }
         if (uiState === "watching") {
+          if (needsUnmute || videoEl.muted) {
+            // Any TV-remote press first restores the sound if this
+            // visit started muted; OK does ONLY that (no pause), other
+            // keys unmute and then do their normal job.
+            ensureSound();
+            tvToast("🔊 Đã bật tiếng " + (curStreamCh ? curStreamCh.name : ""));
+            if (e.key === "Enter" || e.key === " ") { e.preventDefault(); return; }
+          }
           if (e.key === "ArrowDown" || e.key === "ChannelDown") { e.preventDefault(); playChannel((currentLive + 1) % CHANNELS.length); }
           else if (e.key === "ArrowUp" || e.key === "ChannelUp") { e.preventDefault(); playChannel((currentLive - 1 + CHANNELS.length) % CHANNELS.length); }
           else if (e.key === "Escape" || e.key === "Backspace" || e.key === "BrowserBack") { e.preventDefault(); showInfoScreen(); }
@@ -1855,7 +2014,21 @@
           else if (e.key === "0") { e.preventDefault(); playChannel(9); }
           return;
         }
-        if (uiState === "playing" && mode === "live" && view === "home" && e.key === "Enter") { e.preventDefault(); startPlayback(currentLive); return; }
+        if (uiState === "playing" && view === "home") {
+          // Info screen: ◀ ▶ (or ▲ ▼) move the highlight between the
+          // two big choices — TV Trực Tiếp / Kho Phim — and OK opens
+          // the highlighted one on the main page (OK on TV resumes the
+          // channel only when TV is the highlighted choice AND it was
+          // already the live choice from the remote; the buttons are
+          // the primary path: they go to the main page).
+          if (e.key === "ArrowRight" || e.key === "ArrowDown") { e.preventDefault(); setPlayChoice("films"); return; }
+          if (e.key === "ArrowLeft" || e.key === "ArrowUp") { e.preventDefault(); setPlayChoice("live"); return; }
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            showMainPage(playChoice);
+            return;
+          }
+        }
         if (view !== "home") {
           if (e.key === "Escape" || e.key === "Backspace" || e.key === "BrowserBack") { e.preventDefault(); goBack(); }
           return;
@@ -2026,6 +2199,21 @@
           } else { return; }
         }
         if (uiState === "watching") { handleWatchingCmd(cmd); return; }
+        if (uiState === "playing" && view === "home") {
+          // Info screen on the TV: the phone's ◀ ▶ move the highlight
+          // between the two big choices (TV Trực Tiếp / Kho Phim), OK
+          // opens the highlighted one on the MAIN page, and the remote's
+          // Phim / Home buttons jump straight to that main-page section.
+          var handled = true;
+          if (cmd === "left") { setPlayChoice("live"); }
+          else if (cmd === "right") { setPlayChoice("films"); }
+          else if (cmd === "movies") { showMainPage("films"); }
+          else if (cmd === "home" || cmd === "menu") { showMainPage("live"); }
+          else if (cmd === "ok" || cmd === "playpause") { showMainPage(playChoice); }
+          else if (cmd === "back") { backWithinApp(); }
+          else { handled = false; }
+          if (handled) { notifyRemote(); return; }
+        }
         if (cmd === "up") { if (view === "home") { flip(-1); } else { moveFocus("up"); } }
         else if (cmd === "down") { if (view === "home") { flip(1); } else { moveFocus("down"); } }
         else if (cmd === "left") { if (view === "home") { setMode("live", false); } else { moveFocus("left"); } }
@@ -2035,7 +2223,7 @@
             var a = document.activeElement;
             if (a && a.tagName === "BUTTON") { a.click(); }
           } else if (mode === "films") { openCategory(currentFilm); }
-          else if (uiState === "playing") { startPlayback(currentLive); }
+          else if (uiState === "playing" || uiState === "home") { startPlayback(currentLive); }
         }
         else if (cmd === "back") { backWithinApp(); }
         else if (cmd === "home") { setMode("live", false); }
@@ -2172,6 +2360,9 @@
         });
       }
       startPairing();
+
+      document.getElementById("btn-choice-live").addEventListener("click", function () { showMainPage("live"); });
+      document.getElementById("btn-choice-films").addEventListener("click", function () { showMainPage("films"); });
 
       renderList();
       select(0, false);
